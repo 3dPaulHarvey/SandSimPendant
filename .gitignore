@@ -1,0 +1,5 @@
+build/
+tests/*.exe
+tests/artifacts/*
+!tests/artifacts/SandSimulation.reference.h
+__pycache__/
