@@ -2,11 +2,11 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "../Gravity_Sand/ButtonInput.h"
+#include "../shared/ButtonInput.h"
 
 int main() {
   // Contact bounce must settle for the full interval before one event fires.
-  sand::ButtonInput button;
+  input::ButtonInput button;
   assert(!button.update(false, 0));
   assert(!button.update(true, 10));
   assert(!button.update(false, 12));
@@ -26,7 +26,7 @@ int main() {
   assert(button.update(true, 665));
 
   // A held-at-boot button is silent until a debounced release and new press.
-  sand::ButtonInput bootHeld;
+  input::ButtonInput bootHeld;
   assert(!bootHeld.update(true, 0));
   assert(!bootHeld.update(true, 1000));
   assert(!bootHeld.update(false, 1001));
@@ -38,7 +38,7 @@ int main() {
   assert(bootHeld.update(true, 1155));
 
   // millis() wrapping must not shorten or extend the debounce interval.
-  sand::ButtonInput wrapping;
+  input::ButtonInput wrapping;
   assert(!wrapping.update(false, UINT32_MAX - 20));
   assert(!wrapping.update(true, UINT32_MAX - 10));
   assert(!wrapping.update(true, 13));  // 24 elapsed milliseconds.
@@ -49,7 +49,7 @@ int main() {
   assert(wrapping.update(true, 45));
 
   // Both buttons debounce independently and accept a configurable interval.
-  sand::ButtonInput fast(5), slow(40);
+  input::ButtonInput fast(5), slow(40);
   assert(!fast.update(false, 0));
   assert(!slow.update(false, 0));
   assert(!fast.update(true, 1));
@@ -69,7 +69,7 @@ int main() {
   assert(fast.update(true, 212));
 
   // Zero debounce remains useful for electronically debounced inputs.
-  sand::ButtonInput immediate(0);
+  input::ButtonInput immediate(0);
   assert(!immediate.update(false, 0));
   assert(immediate.update(true, 1));
   assert(!immediate.update(true, 2));

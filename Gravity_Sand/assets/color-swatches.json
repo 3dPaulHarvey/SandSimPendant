@@ -1,0 +1,414 @@
+{
+  "schema_version": 1,
+  "name": "Twenty-one palettes from art, design, video games, and monochromatic color",
+  "color_space": "sRGB",
+  "description": "Eight art, animation, and design palettes, eight video games, and five user-selected monochromatic palettes. Game colors are sRGB interpretations of game visuals and original cover art. Each game background is a dark shade of the main color identified by shade_of.",
+  "palettes": [
+    {
+      "id": "paracas-mantle",
+      "name": "Paracas mantle",
+      "source": {"medium": "embroidery", "context": "Ancient Peru"},
+      "main": [
+        {"id": "pine", "name": "Pine", "hex": "#233E38", "rgb": [35, 62, 56]},
+        {"id": "carmine", "name": "Carmine", "hex": "#B54246", "rgb": [181, 66, 70]},
+        {"id": "maize", "name": "Maize", "hex": "#DCAD4B", "rgb": [220, 173, 75]},
+        {"id": "storm-blue", "name": "Storm blue", "hex": "#506F83", "rgb": [80, 111, 131]},
+        {"id": "camel", "name": "Camel", "hex": "#E8BD92", "rgb": [232, 189, 146]}
+      ],
+      "backgrounds": [
+        {"id": "black-plum", "name": "Black plum", "hex": "#381E2D", "rgb": [56, 30, 45]},
+        {"id": "midnight-indigo", "name": "Midnight indigo", "hex": "#203044", "rgb": [32, 48, 68]},
+        {"id": "dark-olive", "name": "Dark olive", "hex": "#39331D", "rgb": [57, 51, 29]}
+      ]
+    },
+    {
+      "id": "the-great-wave",
+      "name": "The Great Wave",
+      "source": {"medium": "woodblock print", "creator": "Katsushika Hokusai"},
+      "main": [
+        {"id": "indigo", "name": "Indigo", "hex": "#173956", "rgb": [23, 57, 86]},
+        {"id": "prussian-blue", "name": "Prussian blue", "hex": "#276897", "rgb": [39, 104, 151]},
+        {"id": "sea-mist", "name": "Sea mist", "hex": "#84AAB4", "rgb": [132, 170, 180]},
+        {"id": "boat-timber", "name": "Boat timber", "hex": "#D4B891", "rgb": [212, 184, 145]},
+        {"id": "foam", "name": "Foam", "hex": "#F6EFDF", "rgb": [246, 239, 223]}
+      ],
+      "backgrounds": [
+        {"id": "ink-navy", "name": "Ink navy", "hex": "#101D2A", "rgb": [16, 29, 42]},
+        {"id": "deep-sea-green", "name": "Deep sea green", "hex": "#263D3C", "rgb": [38, 61, 60]},
+        {"id": "warm-charcoal", "name": "Warm charcoal", "hex": "#3A302B", "rgb": [58, 48, 43]}
+      ]
+    },
+    {
+      "id": "water-lilies",
+      "name": "Water Lilies",
+      "source": {"medium": "oil painting", "creator": "Claude Monet"},
+      "main": [
+        {"id": "pond-green", "name": "Pond green", "hex": "#546E64", "rgb": [84, 110, 100]},
+        {"id": "lily-pad", "name": "Lily pad", "hex": "#8DA880", "rgb": [141, 168, 128]},
+        {"id": "water-blue", "name": "Water blue", "hex": "#86A5AE", "rgb": [134, 165, 174]},
+        {"id": "wisteria", "name": "Wisteria", "hex": "#A19ABB", "rgb": [161, 154, 187]},
+        {"id": "petal-pink", "name": "Petal pink", "hex": "#E4B3B7", "rgb": [228, 179, 183]}
+      ],
+      "backgrounds": [
+        {"id": "pond-shadow", "name": "Pond shadow", "hex": "#1B3434", "rgb": [27, 52, 52]},
+        {"id": "dusk-plum", "name": "Dusk plum", "hex": "#32283F", "rgb": [50, 40, 63]},
+        {"id": "deep-slate", "name": "Deep slate", "hex": "#263547", "rgb": [38, 53, 71]}
+      ]
+    },
+    {
+      "id": "composition-with-red-blue-and-yellow",
+      "name": "Composition with Red, Blue and Yellow",
+      "source": {"medium": "oil painting", "creator": "Piet Mondrian", "detail": "De Stijl"},
+      "main": [
+        {"id": "vermilion", "name": "Vermilion", "hex": "#DD332A", "rgb": [221, 51, 42]},
+        {"id": "primary-blue", "name": "Primary blue", "hex": "#174999", "rgb": [23, 73, 153]},
+        {"id": "sun-yellow", "name": "Sun yellow", "hex": "#F0C733", "rgb": [240, 199, 51]},
+        {"id": "warm-white", "name": "Warm white", "hex": "#F3F0E5", "rgb": [243, 240, 229]},
+        {"id": "line-black", "name": "Line black", "hex": "#20201F", "rgb": [32, 32, 31]}
+      ],
+      "backgrounds": [
+        {"id": "graphite", "name": "Graphite", "hex": "#31353B", "rgb": [49, 53, 59]},
+        {"id": "blue-black", "name": "Blue black", "hex": "#1C2940", "rgb": [28, 41, 64]},
+        {"id": "warm-espresso", "name": "Warm espresso", "hex": "#3E2928", "rgb": [62, 41, 40]}
+      ]
+    },
+    {
+      "id": "the-snail",
+      "name": "The Snail",
+      "source": {"medium": "cut-paper collage", "creator": "Henri Matisse"},
+      "main": [
+        {"id": "tangerine", "name": "Tangerine", "hex": "#F27A36", "rgb": [242, 122, 54]},
+        {"id": "mauve", "name": "Mauve", "hex": "#9B69AF", "rgb": [155, 105, 175]},
+        {"id": "cutout-blue", "name": "Cutout blue", "hex": "#2560A5", "rgb": [37, 96, 165]},
+        {"id": "leaf", "name": "Leaf", "hex": "#3E9861", "rgb": [62, 152, 97]},
+        {"id": "lemon", "name": "Lemon", "hex": "#E8C945", "rgb": [232, 201, 69]}
+      ],
+      "backgrounds": [
+        {"id": "ink-violet", "name": "Ink violet", "hex": "#242343", "rgb": [36, 35, 67]},
+        {"id": "deep-bottle-green", "name": "Deep bottle green", "hex": "#183A32", "rgb": [24, 58, 50]},
+        {"id": "dark-damson", "name": "Dark damson", "hex": "#412534", "rgb": [65, 37, 52]}
+      ]
+    },
+    {
+      "id": "dexters-laboratory",
+      "name": "Dexter’s Laboratory",
+      "source": {"medium": "animation", "creator": "Genndy Tartakovsky", "detail": "Dexter"},
+      "main": [
+        {"id": "hair-orange", "name": "Hair orange", "hex": "#F87927", "rgb": [248, 121, 39]},
+        {"id": "glove-purple", "name": "Glove purple", "hex": "#73479D", "rgb": [115, 71, 157]},
+        {"id": "lens-blue", "name": "Lens blue", "hex": "#9FDBED", "rgb": [159, 219, 237]},
+        {"id": "coat-white", "name": "Coat white", "hex": "#F5F2EA", "rgb": [245, 242, 234]},
+        {"id": "outline-ink", "name": "Outline ink", "hex": "#222135", "rgb": [34, 33, 53]}
+      ],
+      "backgrounds": [
+        {"id": "ultraviolet-shadow", "name": "Ultraviolet shadow", "hex": "#30213D", "rgb": [48, 33, 61]},
+        {"id": "deep-petrol", "name": "Deep petrol", "hex": "#183448", "rgb": [24, 52, 72]},
+        {"id": "smoky-violet", "name": "Smoky violet", "hex": "#373044", "rgb": [55, 48, 68]}
+      ]
+    },
+    {
+      "id": "samurai-jack",
+      "name": "Samurai Jack",
+      "source": {"medium": "animation", "creator": "Genndy Tartakovsky", "detail": "Jack and Aku"},
+      "main": [
+        {"id": "aku-black", "name": "Aku black", "hex": "#111218", "rgb": [17, 18, 24]},
+        {"id": "robe-ivory", "name": "Robe ivory", "hex": "#F1E8D7", "rgb": [241, 232, 215]},
+        {"id": "flame-red", "name": "Flame red", "hex": "#E74334", "rgb": [231, 67, 52]},
+        {"id": "mask-green", "name": "Mask green", "hex": "#60AD58", "rgb": [96, 173, 88]},
+        {"id": "steel-blue", "name": "Steel blue", "hex": "#688BA4", "rgb": [104, 139, 164]}
+      ],
+      "backgrounds": [
+        {"id": "oxblood", "name": "Oxblood", "hex": "#421D2B", "rgb": [66, 29, 43]},
+        {"id": "slate-blue", "name": "Slate blue", "hex": "#263E50", "rgb": [38, 62, 80]},
+        {"id": "shadow-violet", "name": "Shadow violet", "hex": "#382B4A", "rgb": [56, 43, 74]}
+      ]
+    },
+    {
+      "id": "quattro-rally-tricolor",
+      "name": "Quattro rally tricolor",
+      "source": {
+        "medium": "rally livery",
+        "context": "German motorsport",
+        "detail": "Original black-red-gold livery concept inspired by the 1985 Audi Sport quattro S1.",
+        "reference_url": "https://www.audi.com/en/photos/detail/anniversary-magazine-history-14433"
+      },
+      "main": [
+        {"id": "carbon-black", "name": "Carbon black", "hex": "#191A1B", "rgb": [25, 26, 27]},
+        {"id": "rally-red", "name": "Rally red", "hex": "#DB3027", "rgb": [219, 48, 39]},
+        {"id": "signal-yellow", "name": "Signal yellow", "hex": "#FFCC19", "rgb": [255, 204, 25]},
+        {"id": "alpine-white", "name": "Alpine white", "hex": "#F3F0E6", "rgb": [243, 240, 230]},
+        {"id": "alloy-silver", "name": "Alloy silver", "hex": "#A8AFB1", "rgb": [168, 175, 177]}
+      ],
+      "backgrounds": [
+        {"id": "wet-asphalt", "name": "Wet asphalt", "hex": "#292D32", "rgb": [41, 45, 50]},
+        {"id": "pit-lane-oxblood", "name": "Pit-lane oxblood", "hex": "#402024", "rgb": [64, 32, 36]},
+        {"id": "midnight-petrol", "name": "Midnight petrol", "hex": "#162E32", "rgb": [22, 46, 50]}
+      ]
+    },
+    {
+      "id": "halo-combat-evolved",
+      "name": "Halo: Combat Evolved",
+      "source": {
+        "medium": "video game",
+        "creator": "Bungie",
+        "detail": "Mark V armor, Covenant tech, and the ringworld",
+        "reference_url": "https://www.mobygames.com/game/5368/halo-combat-evolved/"
+      },
+      "main": [
+        {"id": "armor-olive", "name": "Armor olive", "hex": "#657643", "rgb": [101, 118, 67]},
+        {"id": "visor-amber", "name": "Visor amber", "hex": "#E8A537", "rgb": [232, 165, 55]},
+        {"id": "covenant-violet", "name": "Covenant violet", "hex": "#785D9E", "rgb": [120, 93, 158]},
+        {"id": "shield-cyan", "name": "Shield cyan", "hex": "#6BC2D8", "rgb": [107, 194, 216]},
+        {"id": "forerunner-steel", "name": "Forerunner steel", "hex": "#526574", "rgb": [82, 101, 116]}
+      ],
+      "backgrounds": [
+        {"id": "night-patrol", "name": "Night patrol", "hex": "#1E2217", "rgb": [30, 34, 23], "shade_of": "armor-olive"},
+        {"id": "covenant-shadow", "name": "Covenant shadow", "hex": "#251F2E", "rgb": [37, 31, 46], "shade_of": "covenant-violet"},
+        {"id": "dark-alloy", "name": "Dark alloy", "hex": "#171B1E", "rgb": [23, 27, 30], "shade_of": "forerunner-steel"}
+      ]
+    },
+    {
+      "id": "super-mario-bros",
+      "name": "Super Mario Bros.",
+      "source": {
+        "medium": "video game",
+        "creator": "Nintendo",
+        "detail": "World 1-1",
+        "reference_url": "https://artsandculture.google.com/asset/screen-capture-of-super-mario-bros-0001/sAFMywkM1XX_Ug"
+      },
+      "main": [
+        {"id": "cap-red", "name": "Cap red", "hex": "#B53120", "rgb": [181, 49, 32]},
+        {"id": "overworld-sky", "name": "Overworld sky", "hex": "#5C94FC", "rgb": [92, 148, 252]},
+        {"id": "warp-pipe", "name": "Warp pipe", "hex": "#00A800", "rgb": [0, 168, 0]},
+        {"id": "brick-orange", "name": "Brick orange", "hex": "#C84C0C", "rgb": [200, 76, 12]},
+        {"id": "cloud-white", "name": "Cloud white", "hex": "#FCFCF4", "rgb": [252, 252, 244]}
+      ],
+      "backgrounds": [
+        {"id": "midnight-sky", "name": "Midnight sky", "hex": "#1F2B41", "rgb": [31, 43, 65], "shade_of": "overworld-sky"},
+        {"id": "pipe-shadow", "name": "Pipe shadow", "hex": "#0A320A", "rgb": [10, 50, 10], "shade_of": "warp-pipe"},
+        {"id": "kiln-brown", "name": "Kiln brown", "hex": "#2F1609", "rgb": [47, 22, 9], "shade_of": "brick-orange"}
+      ]
+    },
+    {
+      "id": "doom",
+      "name": "DOOM",
+      "source": {
+        "medium": "video game",
+        "creator": "id Software",
+        "detail": "The original 1993 cover by Don Ivan Punchatz",
+        "reference_url": "https://bethesda.net/en-EU/news/ripped-and-tear-3a-abs"
+      },
+      "main": [
+        {"id": "marine-green", "name": "Marine green", "hex": "#546D3F", "rgb": [84, 109, 63]},
+        {"id": "hellfire-orange", "name": "Hellfire orange", "hex": "#F47724", "rgb": [244, 119, 36]},
+        {"id": "mars-crimson", "name": "Mars crimson", "hex": "#AC2D32", "rgb": [172, 45, 50]},
+        {"id": "logo-brass", "name": "Logo brass", "hex": "#D8A04D", "rgb": [216, 160, 77]},
+        {"id": "logo-indigo", "name": "Logo indigo", "hex": "#343C79", "rgb": [52, 60, 121]}
+      ],
+      "backgrounds": [
+        {"id": "bunker-green", "name": "Bunker green", "hex": "#1A1F15", "rgb": [26, 31, 21], "shade_of": "marine-green"},
+        {"id": "dark-ember", "name": "Dark ember", "hex": "#2F1112", "rgb": [47, 17, 18], "shade_of": "mars-crimson"},
+        {"id": "midnight-indigo", "name": "Midnight indigo", "hex": "#0F101D", "rgb": [15, 16, 29], "shade_of": "logo-indigo"}
+      ]
+    },
+    {
+      "id": "minecraft",
+      "name": "Minecraft",
+      "source": {
+        "medium": "video game",
+        "creator": "Mojang",
+        "detail": "Overworld blocks and diamond ore",
+        "reference_url": "https://www.minecraft.net/en-us/article/block-week-diamond-ore"
+      },
+      "main": [
+        {"id": "grass-block", "name": "Grass block", "hex": "#719B49", "rgb": [113, 155, 73]},
+        {"id": "dirt-block", "name": "Dirt block", "hex": "#835637", "rgb": [131, 86, 55]},
+        {"id": "stone-gray", "name": "Stone gray", "hex": "#858585", "rgb": [133, 133, 133]},
+        {"id": "river-blue", "name": "River blue", "hex": "#3F76E4", "rgb": [63, 118, 228]},
+        {"id": "diamond-ore", "name": "Diamond ore", "hex": "#56D8CB", "rgb": [86, 216, 203]}
+      ],
+      "backgrounds": [
+        {"id": "cave-moss", "name": "Cave moss", "hex": "#232C1A", "rgb": [35, 44, 26], "shade_of": "grass-block"},
+        {"id": "deep-stone", "name": "Deep stone", "hex": "#2B2B2B", "rgb": [43, 43, 43], "shade_of": "stone-gray"},
+        {"id": "underground-lake", "name": "Underground lake", "hex": "#152036", "rgb": [21, 32, 54], "shade_of": "river-blue"}
+      ]
+    },
+    {
+      "id": "grand-theft-auto",
+      "name": "Grand Theft Auto",
+      "source": {
+        "medium": "video game",
+        "creator": "DMA Design",
+        "detail": "Top-down streets of Liberty City",
+        "reference_url": "https://www.mobygames.com/game/417/grand-theft-auto/screenshots/windows/102052/"
+      },
+      "main": [
+        {"id": "asphalt", "name": "Asphalt", "hex": "#464650", "rgb": [70, 70, 80]},
+        {"id": "taxi-yellow", "name": "Taxi yellow", "hex": "#E9C333", "rgb": [233, 195, 51]},
+        {"id": "taillight-red", "name": "Taillight red", "hex": "#B53A37", "rgb": [181, 58, 55]},
+        {"id": "pavement", "name": "Pavement", "hex": "#B8B4A6", "rgb": [184, 180, 166]},
+        {"id": "park-green", "name": "Park green", "hex": "#5E773D", "rgb": [94, 119, 61]}
+      ],
+      "backgrounds": [
+        {"id": "alley-asphalt", "name": "Alley asphalt", "hex": "#141417", "rgb": [20, 20, 23], "shade_of": "asphalt"},
+        {"id": "dark-brick", "name": "Dark brick", "hex": "#321514", "rgb": [50, 21, 20], "shade_of": "taillight-red"},
+        {"id": "night-park", "name": "Night park", "hex": "#1A1F14", "rgb": [26, 31, 20], "shade_of": "park-green"}
+      ]
+    },
+    {
+      "id": "the-legend-of-zelda",
+      "name": "The Legend of Zelda",
+      "source": {
+        "medium": "video game",
+        "creator": "Nintendo",
+        "detail": "The NES overworld and the life meter",
+        "reference_url": "https://www.mobygames.com/game/3393/the-legend-of-zelda/screenshots/nes/312919/"
+      },
+      "main": [
+        {"id": "forest-green", "name": "Forest green", "hex": "#328738", "rgb": [50, 135, 56]},
+        {"id": "trail-sand", "name": "Trail sand", "hex": "#F3CF99", "rgb": [243, 207, 153]},
+        {"id": "lake-blue", "name": "Lake blue", "hex": "#477BCB", "rgb": [71, 123, 203]},
+        {"id": "heart-red", "name": "Heart red", "hex": "#D94330", "rgb": [217, 67, 48]},
+        {"id": "rock-ochre", "name": "Rock ochre", "hex": "#A65D2D", "rgb": [166, 93, 45]}
+      ],
+      "backgrounds": [
+        {"id": "lost-woods", "name": "Lost Woods", "hex": "#132514", "rgb": [19, 37, 20], "shade_of": "forest-green"},
+        {"id": "dungeon-blue", "name": "Dungeon blue", "hex": "#1B273A", "rgb": [27, 39, 58], "shade_of": "lake-blue"},
+        {"id": "cavern-earth", "name": "Cavern earth", "hex": "#291A10", "rgb": [41, 26, 16], "shade_of": "rock-ochre"}
+      ]
+    },
+    {
+      "id": "candy-crush-soda-saga",
+      "name": "Candy Crush Soda Saga",
+      "source": {
+        "medium": "video game",
+        "creator": "King",
+        "detail": "Purple soda, gummy bears, and frosting",
+        "reference_url": "https://www.king.com/game/candycrushsoda"
+      },
+      "main": [
+        {"id": "soda-violet", "name": "Soda violet", "hex": "#9352D8", "rgb": [147, 82, 216]},
+        {"id": "bubblegum-pink", "name": "Bubblegum pink", "hex": "#F389BC", "rgb": [243, 137, 188]},
+        {"id": "ice-blue", "name": "Ice blue", "hex": "#73CFF0", "rgb": [115, 207, 240]},
+        {"id": "gummy-bear", "name": "Gummy bear", "hex": "#9BD741", "rgb": [155, 215, 65]},
+        {"id": "frosting", "name": "Frosting", "hex": "#F5E5FC", "rgb": [245, 229, 252]}
+      ],
+      "backgrounds": [
+        {"id": "blackcurrant", "name": "Blackcurrant", "hex": "#281A36", "rgb": [40, 26, 54], "shade_of": "soda-violet"},
+        {"id": "mulberry-fizz", "name": "Mulberry fizz", "hex": "#472E3A", "rgb": [71, 46, 58], "shade_of": "bubblegum-pink"},
+        {"id": "deep-soda-blue", "name": "Deep soda blue", "hex": "#24373D", "rgb": [36, 55, 61], "shade_of": "ice-blue"}
+      ]
+    },
+    {
+      "id": "mortal-kombat",
+      "name": "Mortal Kombat",
+      "source": {
+        "medium": "video game",
+        "creator": "Midway",
+        "detail": "Original arcade fighters and arena",
+        "reference_url": "https://www.mortalkombatwarehouse.com/mk1/"
+      },
+      "main": [
+        {"id": "scorpion-gold", "name": "Scorpion gold", "hex": "#E5AF32", "rgb": [229, 175, 50]},
+        {"id": "sub-zero-blue", "name": "Sub-Zero blue", "hex": "#236AB6", "rgb": [35, 106, 182]},
+        {"id": "dragon-red", "name": "Dragon red", "hex": "#BD2729", "rgb": [189, 39, 41]},
+        {"id": "ninja-black", "name": "Ninja black", "hex": "#212125", "rgb": [33, 33, 37]},
+        {"id": "courtyard-stone", "name": "Courtyard stone", "hex": "#A3A6A2", "rgb": [163, 166, 162]}
+      ],
+      "backgrounds": [
+        {"id": "dark-bronze", "name": "Dark bronze", "hex": "#3F3318", "rgb": [63, 51, 24], "shade_of": "scorpion-gold"},
+        {"id": "midnight-ice", "name": "Midnight ice", "hex": "#102133", "rgb": [16, 33, 51], "shade_of": "sub-zero-blue"},
+        {"id": "dragon-oxblood", "name": "Dragon oxblood", "hex": "#2B0D0D", "rgb": [43, 13, 13], "shade_of": "dragon-red"}
+      ]
+    },
+    {
+      "id": "ultraviolet",
+      "name": "Ultraviolet",
+      "source": {"medium": "monochromatic palette", "detail": "Original palette selected by the user from eight monochromatic candidates."},
+      "main": [
+        {"id": "tone-1", "name": "Ultraviolet tone 1", "hex": "#A63BF7", "rgb": [166, 59, 247]},
+        {"id": "tone-2", "name": "Ultraviolet tone 2", "hex": "#B762F8", "rgb": [183, 98, 248]},
+        {"id": "tone-3", "name": "Ultraviolet tone 3", "hex": "#C989FA", "rgb": [201, 137, 250]},
+        {"id": "tone-4", "name": "Ultraviolet tone 4", "hex": "#DBB1FC", "rgb": [219, 177, 252]},
+        {"id": "tone-5", "name": "Ultraviolet tone 5", "hex": "#EFDDFE", "rgb": [239, 221, 254]}
+      ],
+      "backgrounds": [
+        {"id": "shadow-1", "name": "Ultraviolet shadow 1", "hex": "#0B0410", "rgb": [11, 4, 16]},
+        {"id": "shadow-2", "name": "Ultraviolet shadow 2", "hex": "#190925", "rgb": [25, 9, 37]},
+        {"id": "shadow-3", "name": "Ultraviolet shadow 3", "hex": "#270E39", "rgb": [39, 14, 57]}
+      ]
+    },
+    {
+      "id": "glacier-cyan",
+      "name": "Glacier cyan",
+      "source": {"medium": "monochromatic palette", "detail": "Original palette selected by the user from eight monochromatic candidates."},
+      "main": [
+        {"id": "tone-1", "name": "Glacier cyan tone 1", "hex": "#05C1D6", "rgb": [5, 193, 214]},
+        {"id": "tone-2", "name": "Glacier cyan tone 2", "hex": "#1FE3F9", "rgb": [31, 227, 249]},
+        {"id": "tone-3", "name": "Glacier cyan tone 3", "hex": "#5BEBFB", "rgb": [91, 235, 251]},
+        {"id": "tone-4", "name": "Glacier cyan tone 4", "hex": "#9CF3FC", "rgb": [156, 243, 252]},
+        {"id": "tone-5", "name": "Glacier cyan tone 5", "hex": "#D7FAFE", "rgb": [215, 250, 254]}
+      ],
+      "backgrounds": [
+        {"id": "shadow-1", "name": "Glacier cyan shadow 1", "hex": "#040F10", "rgb": [4, 15, 16]},
+        {"id": "shadow-2", "name": "Glacier cyan shadow 2", "hex": "#092225", "rgb": [9, 34, 37]},
+        {"id": "shadow-3", "name": "Glacier cyan shadow 3", "hex": "#0E3539", "rgb": [14, 53, 57]}
+      ]
+    },
+    {
+      "id": "solar-gold",
+      "name": "Solar gold",
+      "source": {"medium": "monochromatic palette", "detail": "Original palette selected by the user from eight monochromatic candidates."},
+      "main": [
+        {"id": "tone-1", "name": "Solar gold tone 1", "hex": "#F0B905", "rgb": [240, 185, 5]},
+        {"id": "tone-2", "name": "Solar gold tone 2", "hex": "#FBCC32", "rgb": [251, 204, 50]},
+        {"id": "tone-3", "name": "Solar gold tone 3", "hex": "#FCDA69", "rgb": [252, 218, 105]},
+        {"id": "tone-4", "name": "Solar gold tone 4", "hex": "#FDE69B", "rgb": [253, 230, 155]},
+        {"id": "tone-5", "name": "Solar gold tone 5", "hex": "#FEF5D7", "rgb": [254, 245, 215]}
+      ],
+      "backgrounds": [
+        {"id": "shadow-1", "name": "Solar gold shadow 1", "hex": "#100D04", "rgb": [16, 13, 4]},
+        {"id": "shadow-2", "name": "Solar gold shadow 2", "hex": "#251E09", "rgb": [37, 30, 9]},
+        {"id": "shadow-3", "name": "Solar gold shadow 3", "hex": "#392F0E", "rgb": [57, 47, 14]}
+      ]
+    },
+    {
+      "id": "emerald",
+      "name": "Emerald",
+      "source": {"medium": "monochromatic palette", "detail": "Original palette selected by the user from eight monochromatic candidates."},
+      "main": [
+        {"id": "tone-1", "name": "Emerald tone 1", "hex": "#0BD06E", "rgb": [11, 208, 110]},
+        {"id": "tone-2", "name": "Emerald tone 2", "hex": "#25F48C", "rgb": [37, 244, 140]},
+        {"id": "tone-3", "name": "Emerald tone 3", "hex": "#5FF7AB", "rgb": [95, 247, 171]},
+        {"id": "tone-4", "name": "Emerald tone 4", "hex": "#9EFACC", "rgb": [158, 250, 204]},
+        {"id": "tone-5", "name": "Emerald tone 5", "hex": "#D8FDEB", "rgb": [216, 253, 235]}
+      ],
+      "backgrounds": [
+        {"id": "shadow-1", "name": "Emerald shadow 1", "hex": "#04100A", "rgb": [4, 16, 10]},
+        {"id": "shadow-2", "name": "Emerald shadow 2", "hex": "#092517", "rgb": [9, 37, 23]},
+        {"id": "shadow-3", "name": "Emerald shadow 3", "hex": "#0E3924", "rgb": [14, 57, 36]}
+      ]
+    },
+    {
+      "id": "crimson",
+      "name": "Crimson",
+      "source": {"medium": "monochromatic palette", "detail": "Original palette selected by the user from eight monochromatic candidates."},
+      "main": [
+        {"id": "tone-1", "name": "Crimson tone 1", "hex": "#F62323", "rgb": [246, 35, 35]},
+        {"id": "tone-2", "name": "Crimson tone 2", "hex": "#F84F4F", "rgb": [248, 79, 79]},
+        {"id": "tone-3", "name": "Crimson tone 3", "hex": "#F97B7B", "rgb": [249, 123, 123]},
+        {"id": "tone-4", "name": "Crimson tone 4", "hex": "#FBA7A7", "rgb": [251, 167, 167]},
+        {"id": "tone-5", "name": "Crimson tone 5", "hex": "#FDD8D8", "rgb": [253, 216, 216]}
+      ],
+      "backgrounds": [
+        {"id": "shadow-1", "name": "Crimson shadow 1", "hex": "#100404", "rgb": [16, 4, 4]},
+        {"id": "shadow-2", "name": "Crimson shadow 2", "hex": "#250909", "rgb": [37, 9, 9]},
+        {"id": "shadow-3", "name": "Crimson shadow 3", "hex": "#390E0E", "rgb": [57, 14, 14]}
+      ]
+    }
+  ],
+  "game_selection": {
+    "method": "Curated selection",
+    "order": "Display order, palettes 09–16"
+  }
+}

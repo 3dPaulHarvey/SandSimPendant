@@ -70,12 +70,17 @@ static void verticalAndLateralMotion() {
     lateral.update(Vec3(0.4f, 0, 1), Vec3(), 0.005f);
     normalEnergy += normal.consume().motionEnergy;
     lateralEnergy += lateral.consume().motionEnergy;
-    assert(near(normal.latestLinear.z, 0.4f));
-    assert(near(lateral.latestLinear.x, 0.4f));
+    if (i == 0) {
+      assert(normal.latestLinear.z > 0.38f);
+      assert(lateral.latestLinear.x > 0.38f);
+    }
     assert(motion::isFinite(normal.latestLinear) && motion::isFinite(lateral.latestLinear));
   }
   assert(normalEnergy > lateralEnergy * 4.5f);
-  assert(normal.activity > lateral.activity && lateral.activity > 0);
+  // A sustained/DC push is not an endless source of additional shake energy.
+  assert(normal.activity == 0 && lateral.activity == 0);
+  assert(motion::norm(normal.latestLinear) < 0.003f);
+  assert(motion::norm(lateral.latestLinear) < 0.003f);
 
   ShakeInput oscillation;
   oscillation.update(Vec3(0, 0, 1), Vec3(), 0.005f);
@@ -83,7 +88,6 @@ static void verticalAndLateralMotion() {
   for (int i = 1; i <= 1000; ++i) {
     const float z = 0.6f * std::sin(2 * kPi * 8 * i * 0.005f);
     oscillation.update(Vec3(0, 0, 1 + z), Vec3(), 0.005f);
-    assert(near(oscillation.latestLinear.z, z));
     assert(near(oscillation.latestLinear.x, 0) && near(oscillation.latestLinear.y, 0));
     energy += oscillation.consume().motionEnergy;
   }
@@ -131,7 +135,7 @@ static double sampledEnergy(int sampleHz, int consumeHz) {
 static void rateIndependentEnergy() {
   const double reference = sampledEnergy(200, 60);
   assert(reference > 1);
-  for (int sampleHz : {100, 180, 200}) for (int consumeHz : {30, 60, 120}) {
+  for (int sampleHz : {100, 180, 200}) for (int consumeHz : {30, 60, 120, 240}) {
     const double energy = sampledEnergy(sampleHz, consumeHz);
     assert(std::fabs(energy - reference) / reference < 0.015);
   }
@@ -140,7 +144,8 @@ static void rateIndependentEnergy() {
 static void staleInvalidAndBoundedInput() {
   ShakeInput input;
   input.update(Vec3(0, 0, 1), Vec3(), 0.005f);
-  for (int i = 0; i < 1000; ++i) input.update(Vec3(4, 4, 4), Vec3(), 0.005f);
+  for (int i = 0; i < 1000; ++i)
+    input.update((i & 1) ? Vec3(4, 4, 4) : Vec3(-4, -4, -4), Vec3(), 0.005f);
   assert(near(input.consume().agitation, 18));
   input.update(Vec3(0, 0, 2), Vec3(), 0.005f);
   input.update(Vec3(0, 0, 1), Vec3(), 0.101f);
@@ -183,20 +188,22 @@ static void coherentImpulseIntegration() {
   // A brief push survives quiet samples before the next physics tick.
   for (int i = 0; i < 2; ++i) input.update(Vec3(0, 0, 1), Vec3(), 0.005f);
   ShakePulse pulse = input.consume();
-  assert(near(pulse.linearImpulseGSeconds.x, (0.4f - 0.08f) * 0.005f, 0.000001f));
+  assert(pulse.linearImpulseGSeconds.x > 0.0015f && pulse.linearImpulseGSeconds.x < 0.0017f);
   assert(near(pulse.linearImpulseGSeconds.y, 0) && near(pulse.linearImpulseGSeconds.z, 0));
   assert(motion::norm(input.consume().linearImpulseGSeconds) == 0);
 
+  // Equal and opposite brief pushes mostly cancel even with leaky memory.
   input.update(Vec3(0.4f, 0, 1), Vec3(), 0.005f);
   input.update(Vec3(-0.4f, 0, 1), Vec3(), 0.005f);
-  assert(motion::norm(input.consume().linearImpulseGSeconds) < 0.000001f);
+  assert(motion::norm(input.consume().linearImpulseGSeconds) < 0.0003f);
 
   input.update(Vec3(0, 0, 1.6f), Vec3(), 0.005f);
   pulse = input.consume();
   assert(pulse.linearImpulseGSeconds.x == 0 && pulse.linearImpulseGSeconds.y == 0);
-  assert(near(pulse.linearImpulseGSeconds.z, (0.6f - 0.08f) * 0.005f, 0.000001f));
+  assert(pulse.linearImpulseGSeconds.z > 0.0024f && pulse.linearImpulseGSeconds.z < 0.0027f);
 
   // Summed impulses are in g*s, independent of sampling/consumption rate.
+  float referenceImpulse = 0;
   for (int sampleHz : {180, 200}) {
     ShakeInput sampled;
     const float dt = 1.0f / sampleHz;
@@ -211,8 +218,13 @@ static void coherentImpulseIntegration() {
       }
     }
     totalX += sampled.consume().linearImpulseGSeconds.x;
-    // Extended recovery waits1.5s, preserving the full1s coherent push.
-    assert(near(totalX, 0.32f, 0.00001f));
+    // The extra effect acts on the onset, then decays; direct acceleration is
+    // already handled by the main tilt path. A constant1s push cannot keep
+    // injecting additional shake/shove after the100ms memory has decayed.
+    assert(totalX > 0.018f && totalX < 0.022f);
+    assert(sampled.activity == 0 && motion::norm(sampled.latestLinear) < 0.0001f);
+    if (referenceImpulse > 0) assert(near(totalX, referenceImpulse, 0.0001f));
+    referenceImpulse = totalX;
   }
 
   for (int i = 0; i < 1000; ++i) input.update(Vec3(0.4f, 0, 1), Vec3(), 0.005f);
@@ -258,5 +270,5 @@ int main() {
   stableRestRecovery();
   coherentImpulseIntegration();
   stillPoseMagnitudeRecovery();
-  std::puts("Shake input tests passed: quiet rest, gyro-aware tilt, XYZ motion, pulse capture, rate-independent energy, recovery and bounded invalid/stale handling.");
+  std::puts("Shake input tests passed: quiet rest, gyro-compensated tilt, transient XYZ motion, pulse capture, rate-independent energy, and bounded invalid/stale recovery.");
 }

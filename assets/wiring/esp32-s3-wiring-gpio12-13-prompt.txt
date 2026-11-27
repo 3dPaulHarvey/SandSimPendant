@@ -1,0 +1,16 @@
+Generated using the built-in image generation tool.
+Edit target: assets/wiring/esp32-s3-annotated-wiring.png
+
+Edit the attached existing SimCircle wiring diagram with ONLY the GY-521 pin reassignment below. Preserve the same accurate board picture, USB-C at top, original green GP labels and all existing LCD, power, ground and button connections, title, typography, color scheme and footer.
+
+Required changes:
+1. Completely remove the orange "GY-521 SDA (I²C)" callout and its line at left GP5.
+2. Completely remove the orange "GY-521 SCL (I²C)" callout and its line at left GP6.
+3. Leave the source GP5 and GP6 labels and physical pads visible and UNCONNECTED.
+4. Add orange "GY-521 SCL (I²C)" callout on the RIGHT at the existing GP13 row, with a clear leader that terminates precisely at GP13.
+5. Add orange "GY-521 SDA (I²C)" callout on the RIGHT at the existing GP12 row, with a clear leader that terminates precisely at GP12.
+The exact new assignment is SDA = GPIO12, SCL = GPIO13. GP13 is physically ABOVE GP12; GP12 is above GP11. DO NOT reverse SDA and SCL. Place the new callouts between the red 3.3V box and purple button boxes. Expand the right margin/canvas or make the new orange callouts compact as necessary, but preserve readable text and do not overlap callouts or cross leader lines.
+
+All invariant assignments must remain unchanged:
+GP1 LCD CS; GP2 LCD DC; GP4 LCD RST; GP7 LCD SCL/SCK (SPI); GP9 LCD SDA/MOSI (SPI); GP11 RANDOMIZE BUTTON (GPIO11 ↔ switch ↔ GND); GP10 EXPLOSION BUTTON (GPIO10 ↔ switch ↔ GND); GND common ground; 3V3(OUT) both module VCCs.
+Keep 5V, BATTERY, GP3, GP5, GP6, GP8, TX, RX, GP48 with no new connection lines. Do not redraw/renumber/mirror the board. Keep footer wording unchanged. Produce a clean, fully legible revised technical wiring diagram.

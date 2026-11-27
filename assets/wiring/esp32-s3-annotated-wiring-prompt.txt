@@ -1,0 +1,26 @@
+Generated using the built-in image generation tool, editing the user-supplied board picture.
+
+Use case: precise-object-edit.
+Asset: clear technical wiring annotation of the user's supplied ESP32-S3 Super Mini pinout picture.
+Input image 1 is the EDIT TARGET. Preserve that exact board picture, proportions, orientation (USB-C socket at TOP), original pin labels and exact pin positions. Do not redraw, mirror, invent, renumber, or relocate pins. Expand white canvas substantially around it so annotation labels have plenty of space. Produce a high-resolution landscape instructional image with the original image large and readable in the middle, colored callouts on both sides. All new text must be crisp large sans-serif. Title "SIMCIRCLE — WIRING"; subtitle "ESP32-S3 Super Mini • USB-C at top • Raw GPIO numbers".
+Use thin colored leader lines that terminate at the corresponding EXISTING pin-label rectangle or its actual pad. Avoid lines over the board and avoid crossed leaders. Every line must have one unambiguous correct pin endpoint. Use blue for display, orange for motion sensor, purple for buttons, red for 3.3V, dark gray for ground. Color is also backed up by text.
+LEFT callouts aligned with their source pin rows, exact mapping:
+GP1 → "LCD CS"
+GP2 → "LCD DC"
+GP4 → "LCD RST"
+GP5 → "GY-521 SDA (I²C)"
+GP6 → "GY-521 SCL (I²C)"
+GP7 → "LCD SCL / SCK (SPI)"
+RIGHT callouts aligned with their source pin rows, exact mapping:
+GND → "COMMON GROUND" with smaller second line "LCD GND + GY-521 GND + both buttons"
+3V3(OUT) → "3.3V POWER" with smaller second line "LCD VCC + GY-521 VCC"
+GP11 → "RANDOMIZE BUTTON" with smaller second line "GPIO11 ↔ switch ↔ GND"
+GP10 → "EXPLOSION BUTTON" with smaller second line "GPIO10 ↔ switch ↔ GND"
+GP9 → "LCD SDA / MOSI (SPI)"
+Leave original GP48, TX, RX, GP3, GP8, GP12, GP13, BATTERY and 5V labels visible and with NO connection lines. Do not mistakenly attach right-side buttons to GP12 or GP13. GP11 is directly above GP10, GP9 directly below GP10. On the left GP4 is below GP3 and above GP5.
+Bottom of image, separated clean explanatory strip:
+"LCD = GC9A01 display    •    GY-521 = motion sensor"
+"LCD SDA/SCL are SPI. Sensor SDA/SCL are separate I²C signals."
+"Both buttons connect to GND when pressed. Internal pull-ups are enabled."
+"Leave 5V and BATTERY unused. Leave GY-521 INT, XDA, XCL and AD0 unconnected."
+Need only this one accurate annotated picture. No decorative components or additional invented connections. The attachment's pin geometry and original labels are invariant; only add margin, title, leaders and labels.

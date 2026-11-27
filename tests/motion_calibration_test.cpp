@@ -1,4 +1,5 @@
 #include "../shared/MotionCalibration.h"
+#include "../shared/BoardConfig.h"
 
 #include <assert.h>
 #include <float.h>
@@ -84,6 +85,34 @@ int main() {
   assert(near(gravity.x, -0.3f) && near(gravity.y, -0.4f));
   gravity = mapGravity(Vec3(0.3f, -0.4f, 0.8f), true, true, true);
   assert(near(gravity.x, -0.4f) && near(gravity.y, -0.3f));
+
+  // Prior COM33 mount: screen gravity = (-ay,-ax). Synthetic readings for
+  // left, toward the viewer, right, away, diagonal, and flat.
+  const Vec3 previousMountedReadings[] = {
+    Vec3(0, 1, 0), Vec3(-1, 0, 0), Vec3(0, -1, 0), Vec3(1, 0, 0),
+    Vec3(-0.3f, 0.4f, 0.8f), Vec3(0, 0, 1)
+  };
+  const Vec2 expectedDirections[] = {
+    Vec2(-1, 0), Vec2(0, 1), Vec2(1, 0), Vec2(0, -1),
+    Vec2(-0.4f, 0.3f), Vec2(0, 0)
+  };
+  for (unsigned i = 0; i < sizeof(previousMountedReadings) / sizeof(previousMountedReadings[0]); ++i) {
+    const Vec3 previous = previousMountedReadings[i];
+    const Vec2 previousMapped = mapGravity(previous, true, false, true);
+    assert(near(previousMapped.x, expectedDirections[i].x));
+    assert(near(previousMapped.y, expectedDirections[i].y));
+
+    // COM35's connector stays at the top while the module turns front-to-back.
+    // Model that physical rotation about screen vertical as (x,-y,-z).
+    // The new defaults must preserve each screen direction, including flat
+    // negative Z, without changing the raw chip-coordinate measurements.
+    const Vec3 faceFlipped(previous.x, -previous.y, -previous.z);
+    const Vec2 mapped = mapGravity(faceFlipped, hardware::kImuSwapAxes,
+                                   hardware::kImuFlipX, hardware::kImuFlipY);
+    assert(near(mapped.x, expectedDirections[i].x));
+    assert(near(mapped.y, expectedDirections[i].y));
+  }
+
   Vec3 limited = clampNorm(Vec3(3, 4, 0), 2);
   assert(near(norm(limited), 2) && near(limited.x, 1.2f) && near(limited.y, 1.6f));
   limited = clampNorm(Vec3(FLT_MAX, FLT_MAX, FLT_MAX), 2);
@@ -92,6 +121,6 @@ int main() {
   const Vec3 raw(0.1f, 0.2f, 0.3f);
   assert(correctAcceleration(raw, Calibration()).x == raw.x);
   puts("Motion calibration: 1g preservation, bias correction, stationary/motion/orientation rejection,");
-  puts("Welford variance, finite bounds, gravity mapping, and rate-independent smoothing passed.");
+  puts("Welford variance, finite bounds, mounted tilt directions, and rate-independent smoothing passed.");
   return 0;
 }

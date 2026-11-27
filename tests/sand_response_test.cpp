@@ -1,66 +1,59 @@
-#include "../Gravity_Sand/SandSimulation.h"
-
-// Freeze the old engine as a behavioral baseline, not a timing benchmark.
-#undef GRAVITY_SAND_SIMULATION_H
-#define sand reference_sand
-#include "artifacts/SandSimulation.reference.h"
-#undef sand
-
-#include <assert.h>
-#include <stdio.h>
-
-template <class Engine>
-static float center(const Engine &sim, bool y) {
-  float sum = 0;
-  for (int i = 0; i < Engine::kParticleCount; ++i)
-    sum += y ? sim.particle(i).y : sim.particle(i).x;
-  return sum / Engine::kParticleCount;
-}
-
-template <class Engine>
-static void settle(Engine &sim) {
-  sim.reset(42);
-  for (int frame = 0; frame < 600; ++frame) sim.step(0, 1, 1.0f / 60);
-}
+#include "fluid_test_support.h"
 
 int main() {
-  sand::Simulation sim;
-  reference_sand::Simulation reference;
-  settle(sim);
-  settle(reference);
-  const float start = center(sim, false), oldStart = center(reference, false);
-  for (int frame = 0; frame < 6; ++frame) {
-    sim.step(-1, 0, 1.0f / 60);
-    reference.step(-1, 0, 1.0f / 60);
-  }
-  const float travel = start - center(sim, false);
-  const float oldTravel = oldStart - center(reference, false);
-  printf("Quarter-turn, first100ms: %.4f cells travel; old engine %.4f\n", travel, oldTravel);
-  assert(travel > oldTravel * 1.2f);
-  assert(travel > 0.10f);
+  Simulation settled;
+  settled.reset(42);
+  runFluid(settled, 0, 1, 4);
+  const float bottom = fluidCenter(settled, true);
+  printf("Downward rest: centroid=(%.2f, %.2f)px, mean speed=%.2fpx/s\n",
+         fluidCenter(settled, false), bottom, fluidSpeed(settled));
+  assert(bottom > 180);
 
-  settle(sim);
-  settle(reference);
-  const float shallowStart = center(sim, false), oldShallowStart = center(reference, false);
-  for (int frame = 0; frame < 12; ++frame) {
-    sim.step(-0.1f, 0, 1.0f / 60);
-    reference.step(-0.1f, 0, 1.0f / 60);
-  }
-  const float shallowTravel = shallowStart - center(sim, false);
-  const float oldShallowTravel = oldShallowStart - center(reference, false);
-  printf("Shallow quarter-turn, first200ms: %.4f cells travel; old engine %.4f\n",
-         shallowTravel, oldShallowTravel);
-  assert(shallowTravel > oldShallowTravel * 1.2f);
-  assert(shallowTravel > 0.05f);
+  // Compare with a neutral continuation to exclude residual settling motion.
+  Simulation full = settled, shallow = settled, neutral = settled;
+  runFluid(full, -1, 0, 0.1f);
+  runFluid(neutral, 0, 0, 0.1f);
+  const float fullTravel = fluidCenter(neutral, false) - fluidCenter(full, false);
+  printf("Full quarter-turn response: %.2fpx left in100ms\n", fullTravel);
+  assert(fullTravel > 4);
 
-  // A settled pile with minor direction noise must not receive turn boosts.
-  settle(sim);
-  sand::Simulation quiet = sim;
-  for (int frame = 0; frame < 120; ++frame) {
-    sim.step((frame & 1) ? 0.005f : -0.005f, 1, 1.0f / 60);
-    quiet.step(0, 1, 1.0f / 60);
+  neutral = settled;
+  runFluid(shallow, -0.12f, 0, 0.2f);
+  runFluid(neutral, 0, 0, 0.2f);
+  const float shallowTravel = fluidCenter(neutral, false) - fluidCenter(shallow, false);
+  printf("Shallow0.12g turn: %.2fpx left in200ms\n", shallowTravel);
+  assert(shallowTravel > 1);
+
+  Simulation reverse = settled;
+  runFluid(reverse, 0, -1, 0.1f);
+  const float reverseTravel = bottom - fluidCenter(reverse, true);
+  printf("Gravity reversal: %.2fpx up in100ms\n", reverseTravel);
+  assert(reverseTravel > 4);
+
+  runFluid(full, -1, 0, 3);
+  assert(fluidCenter(full, false) < 60);
+  runFluid(full, 0, -1, 3);
+  assert(fluidCenter(full, true) < 60);
+  runFluid(full, 1, 0, 3);
+  assert(fluidCenter(full, false) > 180);
+
+  // A lateral shove into the curved wall must loft fluid above the resting pool.
+  Simulation splash = settled;
+  splash.kick(350, 0, 0);
+  int maxLofted = 0;
+  float top = 240;
+  for (int i = 0; i < static_cast<int>(sand::config::kPhysicsHz); ++i) {
+    splash.step(1, 0, fluidDt());
+    checkFluid(splash);
+    int lofted = 0;
+    for (int p = 0; p < Simulation::kParticleCount; ++p) {
+      if (splash.particle(p).y < settled.particle(p).y - 25) ++lofted;
+      if (splash.particle(p).y < top) top = splash.particle(p).y;
+    }
+    if (lofted > maxLofted) maxLofted = lofted;
   }
-  assert(fabsf(center(sim, false) - center(quiet, false)) < 0.05f);
-  puts("Early pile release improves at full and shallow tilt; small noise stays quiet.");
-  return 0;
+  printf("Curved-wall splash: %d dots rise25px, highest y=%.2fpx\n", maxLofted, top);
+  assert(maxLofted >= 20);
+  assert(top < 140);
+  puts("Fast full/shallow tilt, gravity reversal, four-wall flow, and curved-wall splash passed.");
 }

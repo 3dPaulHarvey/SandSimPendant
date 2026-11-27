@@ -12,7 +12,7 @@ namespace motion {
 
 enum ResponseMode : uint8_t { Fast = 0, Raw = 1, Legacy = 2 };
 
-// The caller owns the shared I2C bus and its pins, speed and timeout. All
+// The caller owns the I2C bus and its pins, speed and timeout. All
 // measurements use g and degrees/sec in the physical chip axes. Calibration
 // is applied before mapping acceleration into screen-right/screen-down axes.
 class MPU6050Motion {
@@ -23,26 +23,42 @@ class MPU6050Motion {
   static constexpr ResponseMode Legacy = motion::Legacy;
 
   bool online = false;
-  uint8_t address = 0;
-  uint32_t errors = 0, samples = 0, lastSampleUs = 0;
+  uint8_t address = 0, identity = 0;
+  uint32_t errors = 0, samples = 0, lastSampleUs = 0, rejectedSamples = 0;
+  static constexpr uint8_t kRejectUniformPacket = 0x01;
+  static constexpr uint8_t kRejectClippedAxis = 0x02;
+  static constexpr uint8_t kRejectFloatingVector = 0x04;
+  static constexpr uint8_t kRejectInterruptStatus = 0x08;
+  uint8_t lastRejectReason = 0, lastRejectedPacket[15] = {};
   Vec3 rawAccel, accel, rawGyro, gyro;
+  // Raw/calibrated fields above remain unfiltered for calibration/diagnosis.
+  // Motion consumers use a synchronized median of three fresh samples instead
+  // of allowing a single corrupt I2C burst to become a gravity/shake impulse.
+  Vec3 motionAccel, motionGyro;
+  bool motionReady = false;
   Vec2 inputGravity, gravity;
   ResponseMode mode = motion::Fast;
   Calibration calibration;
 
-  explicit MPU6050Motion(TwoWire &wire = Wire) : wire_(wire) {}
+  explicit MPU6050Motion(TwoWire &wire = Wire, uint8_t compatibilityId = 0)
+      : wire_(wire), compatibilityId_(compatibilityId) {}
+
+  bool compatibilityMode() const { return online && identity != 0x68; }
 
   bool begin() {
     started_ = true;
     if (!calibrationLoaded_) loadCalibration();
     online = false;
     address = 0;
+    identity = 0;
     lastProbeMs_ = millis();
     resetFilter();
     const uint8_t addresses[] = {0x68, 0x69};
     for (uint8_t candidate : addresses) {
-      uint8_t identity = 0;
-      if (!readRegisters(candidate, 0x75, &identity, 1) || identity != 0x68) continue;
+      uint8_t detected = 0;
+      if (!readRegisters(candidate, 0x75, &detected, 1)) continue;
+      identity = detected;
+      if (identity != 0x68 && (!compatibilityId_ || identity != compatibilityId_)) continue;
       if (!writeRegister(candidate, 0x6B, 0x01)) { ++errors; continue; }
       delay(100);  // Wake/PLL stabilization only after an MPU actually responds.
       if (!configure(candidate, mode)) { ++errors; continue; }
@@ -84,6 +100,14 @@ class MPU6050Motion {
       return false;
     }
     if (!(bytes[0] & 0x01)) return false;
+    const uint8_t rejection = packetRejectReason(bytes);
+    if (rejection) {
+      ++errors;
+      ++rejectedSamples;
+      lastRejectReason = rejection;
+      memcpy(lastRejectedPacket, bytes, sizeof(lastRejectedPacket));
+      return false;
+    }
 
     rawAccel = Vec3(word(bytes + 1) / 8192.0f,
                     word(bytes + 3) / 8192.0f,
@@ -93,19 +117,26 @@ class MPU6050Motion {
                    word(bytes + 13) / 65.5f);
     accel = correctAcceleration(rawAccel, calibration);
     gyro = correctGyro(rawGyro, calibration);
-    inputGravity = mapGravity(accel, swap_, flipX_, flipY_);
+    qualifyMotion();
+    inputGravity = mapGravity(mode == motion::Raw ? accel : motionAccel,
+                              swap_, flipX_, flipY_);
 
     const uint32_t sampleUs = micros();
     const float tauSeconds = mode == motion::Fast ? 0.008f :
                              (mode == motion::Legacy ? 0.04025f : 0.0f);
-    if (firstFilter_) gravity = inputGravity;
-    else {
+    if (!motionReady && mode != motion::Raw) {
+      // Collect two startup samples before publishing a median. Callers must
+      // also wait for motionReady before initializing their shake reference.
+      gravity = Vec2();
+    } else if (firstFilter_) {
+      gravity = inputGravity;
+      firstFilter_ = false;
+    } else {
       const float dt = static_cast<uint32_t>(sampleUs - filterSampleUs_) * 0.000001f;
       const float alpha = smoothingAlpha(dt, tauSeconds);
       gravity.x += alpha * (inputGravity.x - gravity.x);
       gravity.y += alpha * (inputGravity.y - gravity.y);
     }
-    firstFilter_ = false;
     filterSampleUs_ = lastSampleUs = sampleUs;
     lastFreshMs_ = millis();
     ++samples;
@@ -203,9 +234,12 @@ class MPU6050Motion {
   static constexpr uint32_t kMagic = 0x4D43414CUL;
   static constexpr uint16_t kVersion = 1;
   TwoWire &wire_;
+  const uint8_t compatibilityId_;
   bool started_ = false, calibrationLoaded_ = false;
   bool swap_ = false, flipX_ = false, flipY_ = false, firstFilter_ = true;
   uint32_t lastProbeMs_ = 0, lastFreshMs_ = 0, lastPollUs_ = 0, filterSampleUs_ = 0;
+  Vec3 accelHistory_[3], gyroHistory_[3];
+  uint8_t historyIndex_ = 0, historyCount_ = 0;
 
   static bool validMode(ResponseMode value) {
     return value == motion::Fast || value == motion::Raw || value == motion::Legacy;
@@ -224,10 +258,68 @@ class MPU6050Motion {
   static int16_t word(const uint8_t *bytes) {
     return static_cast<int16_t>((static_cast<uint16_t>(bytes[0]) << 8) | bytes[1]);
   }
+  static uint8_t packetRejectReason(const uint8_t *bytes) {
+    uint8_t reason = 0;
+    // Whole zero/FF payloads are common failed-bus patterns, not useful motion
+    // measurements. Zero acceleration alone remains valid (real free fall).
+    bool allZero = true, allHigh = true;
+    for (int i = 1; i < 15; ++i) {
+      allZero = allZero && bytes[i] == 0;
+      allHigh = allHigh && bytes[i] == 0xFF;
+    }
+    if (allZero || allHigh) reason |= kRejectUniformPacket;
+    // A broken transfer can leave its tail high while earlier acceleration
+    // bytes look plausible. On this assembly a complete 0xFFFF gyro vector
+    // accompanied false Z drops. Reject whole six-byte FF vectors, but permit
+    // individual -1 ADC words and legitimate zero gyro/free-fall readings.
+    bool accelHigh = true, gyroHigh = true;
+    for (int i = 0; i < 6; ++i) {
+      accelHigh = accelHigh && bytes[1 + i] == 0xFF;
+      gyroHigh = gyroHigh && bytes[9 + i] == 0xFF;
+    }
+    if (accelHigh || gyroHigh) reason |= kRejectFloatingVector;
+    // MPU-6000/6050 register map rev4.2, INT_STATUS(0x3A): bits1/2 reserved.
+    // Compatibility devices must meet this register contract too. This check
+    // only runs on a packet claiming DATA_RDY; no other interrupt is inferred.
+    if (bytes[0] & 0x06) reason |= kRejectInterruptStatus;
+    // A clipped axis has lost magnitude information. Hold the last usable
+    // motion sample until a fresh in-range measurement arrives; never turn a
+    // full-scale/bit-corrupted gyro value into integrated orientation.
+    static const uint8_t axes[] = {1, 3, 5, 9, 11, 13};
+    for (uint8_t offset : axes) {
+      const int16_t value = word(bytes + offset);
+      if (value == INT16_MIN || value == INT16_MAX) reason |= kRejectClippedAxis;
+    }
+    return reason;
+  }
+  static float median(float a, float b, float c) {
+    if (a > b) { const float temporary = a; a = b; b = temporary; }
+    if (b > c) b = c;
+    return a > b ? a : b;
+  }
+  static Vec3 median(const Vec3 (&history)[3]) {
+    return Vec3(median(history[0].x, history[1].x, history[2].x),
+                median(history[0].y, history[1].y, history[2].y),
+                median(history[0].z, history[1].z, history[2].z));
+  }
+  void qualifyMotion() {
+    accelHistory_[historyIndex_] = accel;
+    gyroHistory_[historyIndex_] = gyro;
+    historyIndex_ = (historyIndex_ + 1) % 3;
+    if (historyCount_ < 3) ++historyCount_;
+    motionReady = historyCount_ == 3;
+    if (motionReady) {
+      motionAccel = median(accelHistory_);
+      motionGyro = median(gyroHistory_);
+    }
+  }
   void resetFilter() {
     accel = correctAcceleration(rawAccel, calibration);
     gyro = correctGyro(rawGyro, calibration);
-    inputGravity = mapGravity(accel, swap_, flipX_, flipY_);
+    motionAccel = motionGyro = Vec3();
+    motionReady = false;
+    historyIndex_ = historyCount_ = 0;
+    inputGravity = mode == motion::Raw ? mapGravity(accel, swap_, flipX_, flipY_) : Vec2();
     gravity = inputGravity;
     firstFilter_ = true;
     filterSampleUs_ = 0;
@@ -246,7 +338,11 @@ class MPU6050Motion {
       while (wire_.available()) wire_.read();
       return false;
     }
-    for (uint8_t i = 0; i < count; ++i) out[i] = wire_.read();
+    for (uint8_t i = 0; i < count; ++i) {
+      const int value = wire_.read();
+      if (value < 0) return false;
+      out[i] = static_cast<uint8_t>(value);
+    }
     return true;
   }
   bool writeRegister(uint8_t device, uint8_t reg, uint8_t value) {

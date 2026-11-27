@@ -1,0 +1,18 @@
+Built-in image tool; edit of assets/wiring/esp32-s3-wiring-gpio12-13.png.
+
+Use case: precise-object-edit. Redo this annotated ESP32-S3 Super Mini wiring picture as the final current wiring diagram. The provided local image is the edit target. Preserve the original board picture, exact pin geometry, all original green/red/black pin labels, and USB-C-at-top orientation. Keep all correct connections and the readable colored callout layout. Clean white background, crisp large typography, high resolution.
+Make the title "SIMCIRCLE — CURRENT WIRING".
+Make the two orange IMU callouts more explicit: leader to GP13 labeled "GY-521 SCL → GPIO13"; leader to GP12 labeled "GY-521 SDA → GPIO12". GP13 is physically ABOVE GP12. These are I²C sensor signals.
+Retain blue LCD connections exactly: GP1 "LCD CS", GP2 "LCD DC", GP4 "LCD RST", GP7 "LCD SCL / SCK (SPI)", GP9 "LCD SDA / MOSI (SPI)".
+Retain purple buttons exactly: GP11 "RANDOMIZE BUTTON" with "GPIO11 ↔ switch ↔ GND"; GP10 "EXPLOSION BUTTON" with "GPIO10 ↔ switch ↔ GND".
+Retain red 3V3(OUT) leader "3.3V POWER" with "LCD VCC + GY-521 VCC".
+Retain dark-gray GND leader "COMMON GROUND" with "LCD GND + GY-521 GND + both buttons".
+GP5 and GP6 must have NO sensor connections. Add a modest separate gray note at their left, without connecting lines: "GPIO5 / GPIO6 unused".
+Leave GP3, GP8, GP12/GP13 source labels, GP48, TX, RX, BATTERY and 5V in their exact source locations. Only GP12/GP13 among those have new sensor leaders; other unused labels have no connection lines. Never invent GPIO pads or move pin positions.
+Keep the subtitle "ESP32-S3 Super Mini • USB-C at top • Raw GPIO numbers".
+Keep bottom explanatory text, with room and correct legibility:
+"LCD = GC9A01 display • GY-521 = motion sensor"
+"LCD SDA/SCL are SPI. Sensor SDA/SCL are separate I²C signals."
+"Both buttons connect to GND when pressed. Internal pull-ups are enabled."
+"Leave 5V and BATTERY unused. Leave GY-521 INT, XDA, XCL and AD0 unconnected."
+Only make these annotation changes. Preserve every physical pin and correctly connected callout. Widen canvas or boxes as needed so none of the text is clipped and the right-side orange and purple labels do not overlap. Return one complete accurate annotated picture.

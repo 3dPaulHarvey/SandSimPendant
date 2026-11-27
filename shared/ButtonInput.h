@@ -1,9 +1,9 @@
-#ifndef GRAVITY_SAND_BUTTON_INPUT_H
-#define GRAVITY_SAND_BUTTON_INPUT_H
+#ifndef SIMCIRCLE_BUTTON_INPUT_H
+#define SIMCIRCLE_BUTTON_INPUT_H
 
 #include <stdint.h>
 
-namespace sand {
+namespace input {
 
 // Feed the logical pressed state (digitalRead(pin) == LOW for INPUT_PULLUP).
 // A stable press emits one event; holding the switch never repeats it.
@@ -49,6 +49,6 @@ class ButtonInput {
   bool armed_ = false;
 };
 
-}  // namespace sand
+}  // namespace input
 
 #endif

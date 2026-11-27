@@ -5,384 +5,436 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "SandConfig.h"
+#include "FluidVariation.h"
+#include "FluidImpact.h"
 
-// A small, allocation-free particle/grid hybrid. Each grain owns exactly one
-// cell. Subcell velocity gives falling grains inertia; blocked grains can roll
-// into a free downhill neighbor, making piles instead of overlapping points.
+// Arduino's default -Os leaves substantial per-neighbor call/loop overhead.
+// Optimize only this solver for speed; retain IEEE finite checks and rounding.
+#if defined(ARDUINO_ARCH_ESP32) && defined(__GNUC__) && !defined(__clang__)
+#pragma GCC push_options
+#pragma GCC optimize("O3")
+#endif
+
 namespace sand {
-
 struct Particle {
-  float x, y;       // Cell coordinates, including a fractional position.
-  float vx, vy;     // Cells per second.
-  float slide;     // Fractional opportunity to roll along a pile.
-  uint16_t cell;
-  uint8_t color;    // Palette index 0..7, stable for this grain.
+  float x, y;   // Continuous display-pixel coordinates, +Y down.
+  float vx, vy; // Pixels / second.
+  uint8_t color;
 };
 
+// Allocation-free double-density relaxation fluid (Clavet et al., SCA 2005).
+// No lattice, grain occupancy, rolling rules, or plastic springs. Symmetric
+// pressure displacements and local viscosity let neighbors exchange momentum.
+// A small spatial index finds nearby dots; it never quantizes their positions.
 class Simulation {
  public:
   static constexpr int kDisplaySize = 240;
-  static constexpr int kCellSize = 3;
-  static constexpr int kGridSize = kDisplaySize / kCellSize;
   static constexpr int kParticleCount = config::kParticleCount;
-  static constexpr int kCircleRadius = 117;
-  static constexpr uint16_t kEmpty = 0xFFFF;
-  static constexpr uint16_t kWall = 0xFFFE;
+  static constexpr int kMaxParticleCount = config::kMaxParticleCount;
+  static constexpr int kCircleRadius = config::kCircleRadius;
+  static constexpr float kCenter = 119.5f;
+  static constexpr float kBoundaryRadius = kCircleRadius - config::kDotRadius;
 
   Simulation() { reset(); }
 
-  // Start with grains scattered through the disk. The seed also determines
-  // grain colors and the unbiased update/slide order.
-  void reset(uint32_t seed = 1) {
-    rng_ = seed ? seed : 1;
-    turnReferenceReady_ = false;
-    turnReferenceX_ = turnReferenceY_ = 0;
-    turnBoostRemaining_ = 0;
-    for (int row = 0; row < kGridSize; ++row) {
-      for (int col = 0; col < kGridSize; ++col) {
-        cells_[row * kGridSize + col] = inside(col, row) ? kEmpty : kWall;
-      }
-    }
-    for (int i = 0; i < kParticleCount; ++i) {
-      int col, row;
-      do {
-        col = static_cast<int>(random() % kGridSize);
-        row = static_cast<int>(random() % kGridSize);
-      } while (cells_[row * kGridSize + col] != kEmpty);
-      Particle &p = particles_[i];
-      p.x = col + 0.5f;
-      p.y = row + 0.5f;
-      p.vx = p.vy = p.slide = 0.0f;
-      p.cell = static_cast<uint16_t>(row * kGridSize + col);
-      p.color = static_cast<uint8_t>(random() & 7);
-      cells_[p.cell] = static_cast<uint16_t>(i);
-    }
+  // Match the inverse-area population rule, including its +20% variation.
+  // Reject overfilled configurations before changing any existing fluid state.
+  static int maxCountForScale(float scale) {
+    return variation::maxCountForScale(scale);
   }
 
-  // Explicit shake impulse, in cells/sec. XY is a coherent velocity change;
-  // agitation is zero-mean per-axis RMS velocity noise, useful for normal/Z
-  // bumps. Callers control event timing; no hidden dt multiplier is applied.
-  // Balanced pairs add no random net momentum before contact/speed limiting.
-  // Quiet tilt physics is unchanged when this method is not called (or zero).
-  void kick(float deltaVx, float deltaVy, float agitation) {
-    if (!isfinite(deltaVx) || !isfinite(deltaVy) || !isfinite(agitation)) return;
-    if (agitation < 0.0f) agitation = 0.0f;
-    if (agitation > config::kMaxKick) agitation = config::kMaxKick;
-    if (deltaVx == 0.0f && deltaVy == 0.0f && agitation == 0.0f) return;
-
-    // Scale first so even huge but finite input cannot overflow its norm.
-    float largest = fabsf(deltaVx);
-    if (fabsf(deltaVy) > largest) largest = fabsf(deltaVy);
-    if (largest > config::kMaxKick) {
-      deltaVx = (deltaVx / largest) * config::kMaxKick;
-      deltaVy = (deltaVy / largest) * config::kMaxKick;
-    }
-    const float coherent2 = deltaVx * deltaVx + deltaVy * deltaVy;
-    if (coherent2 > config::kMaxKick * config::kMaxKick) {
-      const float scale = config::kMaxKick / sqrtf(coherent2);
-      deltaVx *= scale;
-      deltaVy *= scale;
-    }
-
-    // Eight directions avoid per-grain trig or sqrt. Each axis has unit RMS;
-    // total random impulse magnitude is sqrt(2)*agitation. Opposite impulses
-    // in each pair give exact zero-sum jitter before float rounding/clamping.
-    static const float directionX[8] = {1.41421356f, 1, 0, -1, -1.41421356f, -1, 0, 1};
-    static const float directionY[8] = {0, 1, 1.41421356f, 1, 0, -1, -1.41421356f, -1};
-    for (int i = 0; i + 1 < kParticleCount; i += 2) {
-      float jitterX = 0, jitterY = 0;
-      if (agitation > 0.0f) {
-        const uint32_t direction = random() & 7;
-        jitterX = directionX[direction] * agitation;
-        jitterY = directionY[direction] * agitation;
-      }
-      addVelocity(particles_[i], deltaVx + jitterX, deltaVy + jitterY);
-      addVelocity(particles_[i + 1], deltaVx - jitterX, deltaVy - jitterY);
-    }
-    // A trailing odd grain receives coherent motion only, preserving the
-    // zero-sum random impulse without restricting configurable grain counts.
-    if (kParticleCount & 1) addVelocity(particles_[kParticleCount - 1], deltaVx, deltaVy);
+  // A separate capacity keeps the old compact-fluid API stable while allowing
+  // crowded giant particles. At 10x, 24 round bodies already exceed the
+  // display's available physical area; no extra particles are needed to jam.
+  static int maxPackedCountForScale(float scale) {
+    return variation::maxPackedCountForScale(scale);
   }
 
-  // Screen-space acceleration in g: +X right, +Y down. At zero acceleration
-  // grains coast with damping; there is no artificial fallback gravity here.
-  // Long frames are capped so a stalled USB reader cannot explode the solver.
-  void step(float gravityX, float gravityY, float dtSeconds) {
-    if (!isfinite(gravityX) || !isfinite(gravityY) ||
-        !isfinite(dtSeconds) || dtSeconds <= 0.0f) return;
-    if (dtSeconds > config::kMaxFrameSeconds) dtSeconds = config::kMaxFrameSeconds;
-    float largest = fabsf(gravityX);
-    if (fabsf(gravityY) > largest) largest = fabsf(gravityY);
-    if (largest > config::kMaxGravity) {
-      gravityX = (gravityX / largest) * config::kMaxGravity;
-      gravityY = (gravityY / largest) * config::kMaxGravity;
-    }
-    float magnitude = sqrtf(gravityX * gravityX + gravityY * gravityY);
-    if (magnitude > config::kMaxGravity) {
-      gravityX *= config::kMaxGravity / magnitude;
-      gravityY *= config::kMaxGravity / magnitude;
-      magnitude = config::kMaxGravity;
-    }
-    // Suppress accelerometer noise while the screen is nearly face-up.
-    if (magnitude < config::kGravityDeadzone) gravityX = gravityY = magnitude = 0.0f;
-    updateTurnResponse(gravityX, gravityY, magnitude);
-    // Derive the safety rate from the configured speed cap. Raising speed or
-    // lowering the minimum rate cannot make grains skip an occupied cell.
-    float rate = config::kMaxSpeed / config::kMaxCellTravel;
-    if (rate < config::kMinimumSubstepHz) rate = config::kMinimumSubstepHz;
-    int substeps = static_cast<int>(ceilf(dtSeconds * rate - 0.0001f));
-    if (substeps < 1) substeps = 1;
-    const float dt = dtSeconds / substeps;
-    StepParameters parameters;
-    parameters.dt = dt;
-    parameters.damping = 1.0f - config::kAirDamping * dt;
-    if (parameters.damping < 0.0f) parameters.damping = 0.0f;
-    const float boost = turnBoostRemaining_ > 0 ? config::kTurnAccelerationBoost : 1.0f;
-    parameters.accelX = gravityX * config::kAcceleration * boost * dt;
-    parameters.accelY = gravityY * config::kAcceleration * boost * dt;
-    float slideRate = config::kSlideRate * magnitude;
-    if (magnitude > 0 && slideRate < config::kMinimumSlideRate)
-      slideRate = config::kMinimumSlideRate;
-    parameters.slideIncrement = slideRate * dt;
-    parameters.magnitude = magnitude;
-    parameters.neighborCount = 0;
-    // Preserve the original neighbor order and tie-break RNG calls, while
-    // doing gravity-dependent work once rather than once per blocked grain.
-    for (int dy = -1; dy <= 1; ++dy) {
-      for (int dx = -1; dx <= 1; ++dx) {
-        if (dx == 0 && dy == 0) continue;
-        const float downhill = dx * gravityX + dy * gravityY;
-        if (downhill < magnitude * 0.15f) continue;
-        Neighbor &neighbor = parameters.neighbors[parameters.neighborCount++];
-        neighbor.dx = dx;
-        neighbor.dy = dy;
-        neighbor.offset = dy * kGridSize + dx;
-        neighbor.alignment = downhill * ((dx && dy) ? 0.70710678f : 1.0f);
-      }
-    }
-    for (int s = 0; s < substeps; ++s) {
-      int i = static_cast<int>(random() % kParticleCount);
-      const int direction = (random() & 1) ? 1 : -1;
-      for (int n = 0; n < kParticleCount; ++n) {
-        advance(static_cast<uint16_t>(i), parameters);
-        i += direction;
-        if (i < 0) i = kParticleCount - 1;
-        if (i >= kParticleCount) i = 0;
-      }
-    }
-    turnBoostRemaining_ -= dtSeconds;
-    if (turnBoostRemaining_ < 0) turnBoostRemaining_ = 0;
-  }
-
-  const Particle &particle(size_t index) const { return particles_[index]; }
-  int pixelX(size_t index) const {
-    return (particles_[index].cell % kGridSize) * kCellSize;
-  }
-  int pixelY(size_t index) const {
-    return (particles_[index].cell / kGridSize) * kCellSize;
-  }
-  uint16_t particleAt(int col, int row) const {
-    if (col < 0 || row < 0 || col >= kGridSize || row >= kGridSize) return kWall;
-    return cells_[row * kGridSize + col];
-  }
-
-  // Check the farthest pixel corner of a 3x3 grain against a circle centered
-  // at (119.5,119.5). Arithmetic is doubled to avoid float work in this mask.
-  static bool inside(int col, int row) {
-    if (col < 0 || row < 0 || col >= kGridSize || row >= kGridSize) return false;
-    int dx = col * 6 - 237;
-    int dy = row * 6 - 237;
-    if (dx < 0) dx = -dx;
-    if (dy < 0) dy = -dy;
-    dx += 2;
-    dy += 2;
-    return dx * dx + dy * dy <= 4 * kCircleRadius * kCircleRadius;
-  }
-
- private:
-  struct Neighbor {
-    int dx, dy, offset;
-    float alignment;
-  };
-  struct StepParameters {
-    float dt, damping, accelX, accelY, slideIncrement, magnitude;
-    int neighborCount;
-    Neighbor neighbors[8];
-  };
-  Particle particles_[kParticleCount];
-  uint16_t cells_[kGridSize * kGridSize];
-  uint32_t rng_;
-  bool turnReferenceReady_;
-  float turnReferenceX_, turnReferenceY_, turnBoostRemaining_;
-
-  void updateTurnResponse(float gravityX, float gravityY, float magnitude) {
-    if (magnitude < config::kTurnMinGravity) {
-      turnReferenceReady_ = false;
-      turnBoostRemaining_ = 0;
-      return;
-    }
-    const float directionX = gravityX / magnitude;
-    const float directionY = gravityY / magnitude;
-    if (turnReferenceReady_ && directionX * turnReferenceX_ +
-        directionY * turnReferenceY_ >= config::kTurnCosine) return;
-    // The reference only advances after a full threshold crossing. Small
-    // sensor fluctuations cannot repeatedly release a resting pile.
-    if (turnReferenceReady_) {
-      turnBoostRemaining_ = config::kTurnBoostSeconds;
-      for (int i = 0; i < kParticleCount; ++i) {
-        Particle &p = particles_[i];
-        p.slide = 1.0f;
-        const float uphill = p.vx * directionX + p.vy * directionY;
-        if (uphill < 0) {
-          const float remove = uphill * (1.0f - config::kOpposingRetention);
-          p.vx -= directionX * remove;
-          p.vy -= directionY * remove;
-        }
-      }
-    }
-    turnReferenceX_ = directionX;
-    turnReferenceY_ = directionY;
-    turnReferenceReady_ = true;
-  }
-
-  static void addVelocity(Particle &particle, float deltaVx, float deltaVy) {
-    particle.vx += deltaVx;
-    particle.vy += deltaVy;
-    const float speed2 = particle.vx * particle.vx + particle.vy * particle.vy;
-    if (speed2 > config::kMaxSpeed * config::kMaxSpeed) {
-      const float scale = config::kMaxSpeed / sqrtf(speed2);
-      particle.vx *= scale;
-      particle.vy *= scale;
-    }
-  }
-
-  uint32_t random() {
-    rng_ ^= rng_ << 13;
-    rng_ ^= rng_ >> 17;
-    rng_ ^= rng_ << 5;
-    return rng_;
-  }
-
-  bool moveTo(uint16_t id, float x, float y) {
-    // Reject invalid proposals before the unchecked cell helper, even if
-    // tuning values are changed later. Valid circular cells have positive x/y.
-    if (!(x >= 0 && y >= 0 && x < kGridSize && y < kGridSize)) return false;
-    const int col = static_cast<int>(x);
-    const int row = static_cast<int>(y);
-    const uint16_t cell = static_cast<uint16_t>(row * kGridSize + col);
-    return moveToCell(id, cell, x, y);
-  }
-
-  bool moveToCell(uint16_t id, uint16_t cell, float x, float y) {
-    if (cells_[cell] != kEmpty && cells_[cell] != id) return false;
-    Particle &p = particles_[id];
-    if (cell != p.cell) {
-      cells_[p.cell] = kEmpty;
-      cells_[cell] = id;
-      p.cell = cell;
-    }
-    p.x = x;
-    p.y = y;
+  bool configure(float scale, int count, uint32_t seed = 1) {
+    if (!variation::validScale(scale) || count < config::kMinParticleCount ||
+        count > maxCountForScale(scale)) return false;
+    packed_ = false;
+    configureState(scale, count);
+    reset(seed);
     return true;
   }
 
-  void advance(uint16_t id, const StepParameters &parameters) {
-    Particle &p = particles_[id];
-    p.vx = (p.vx + parameters.accelX) * parameters.damping;
-    p.vy = (p.vy + parameters.accelY) * parameters.damping;
-    const float speed2 = p.vx * p.vx + p.vy * p.vy;
-    // Less than one cell per substep prevents tunneling through a grain.
-    if (speed2 > config::kMaxSpeed * config::kMaxSpeed) {
-      const float scale = config::kMaxSpeed / sqrtf(speed2);
-      p.vx *= scale;
-      p.vy *= scale;
-    }
-    const float nx = p.x + p.vx * parameters.dt;
-    const float ny = p.y + p.vy * parameters.dt;
-    // Small, speed-aware substeps and the circle's one-cell border make this
-    // direct lookup safe. moveTo() also guards contact-resolution proposals.
-    const uint16_t nextCell = static_cast<uint16_t>(static_cast<int>(ny) *
-                                                  kGridSize + static_cast<int>(nx));
-    const bool hitWall = cells_[nextCell] == kWall;
-    const float incomingVx = p.vx;
-    const float incomingVy = p.vy;
-    const uint16_t oldCell = p.cell;
-    // Diagonal cell moves are allowed: the grains are dots, and forbidding
-    // these moves can lock an entire old pile in place after a 90 degree turn.
-    if (moveToCell(id, nextCell, nx, ny)) {
-      // Fractional movement inside a blocked grain's old cell must not erase
-      // its accumulated rolling opportunity on every other substep.
-      if (nextCell != oldCell || parameters.magnitude == 0) p.slide = 0.0f;
+  bool configurePacked(float scale, int count, uint32_t seed = 1) {
+    const int capacity = maxPackedCountForScale(scale);
+    if (!capacity || count < config::kMinParticleCount || count > capacity) return false;
+    packed_ = true;
+    configureState(scale, count);
+    reset(seed);
+    return true;
+  }
+
+  int particleCount() const { return activeCount_; }
+  float dotRadius() const { return radius_; }
+  float sizeScale() const { return scale_; }
+  float boundaryRadius() const { return boundaryRadius_; }
+  bool packed() const { return packed_; }
+
+  void reset(uint32_t seed = 1) {
+    rng_ = seed ? seed : 1;
+    for (int i = 0; i < activeCount_; ++i) impacts_[i].reset();
+    if (packed_) {
+      // Equal-area sunflower spacing fills the disk without projecting a
+      // rectangular lattice onto the rim. Trig runs only on reset/randomize.
+      const float rotation = static_cast<float>(random() >> 8) *
+                             (6.283185307f / 16777216.0f);
+      const float goldenAngle = 2.399963230f;
+      for (int i = 0; i < activeCount_; ++i) {
+        Particle &p = particles_[i];
+        const float distance = boundaryRadius_ *
+            sqrtf((static_cast<float>(i) + 0.5f) / activeCount_);
+        const float angle = rotation + goldenAngle * i;
+        p.x = kCenter + distance * cosf(angle);
+        p.y = kCenter + distance * sinf(angle);
+        p.vx = p.vy = 0;
+        p.color = static_cast<uint8_t>(random() & 7);
+        projectWall(p);
+      }
       return;
     }
-
-    // Preserve movement along a contact, discard movement into the obstacle.
-    // Resolve both orders over time so diagonal gravity has no fixed bias.
-    if (random() & 1) {
-      moveX(id, nx);
-      moveY(id, ny);
-    } else {
-      moveY(id, ny);
-      moveX(id, nx);
-    }
-    if (hitWall) {
-      // Project impact velocity onto the circular wall. Without this, square
-      // grid stair-steps can hold an old pile in place after a quarter-turn.
-      const float normalX = p.x - kGridSize * 0.5f;
-      const float normalY = p.y - kGridSize * 0.5f;
-      const float normal2 = normalX * normalX + normalY * normalY;
-      const float outward = incomingVx * normalX + incomingVy * normalY;
-      if (normal2 > 1.0f && outward > 0.0f) {
-        p.vx = (incomingVx - normalX * outward / normal2) * config::kWallRetention;
-        p.vy = (incomingVy - normalY * outward / normal2) * config::kWallRetention;
-      }
-    }
-    if (parameters.magnitude == 0.0f) { p.slide = 0.0f; return; }
-
-    p.slide += parameters.slideIncrement;
-    if (p.slide < 1.0f) return;
-    p.slide = 1.0f;
-    const int currentCol = p.cell % kGridSize;
-    const int currentRow = p.cell / kGridSize;
-    float best = -1.0f;
-    int bestX = 0, bestY = 0;
-    for (int n = 0; n < parameters.neighborCount; ++n) {
-      const Neighbor &neighbor = parameters.neighbors[n];
-      // A valid cell is at least one cell from the grid edge. Every neighbor
-      // index is therefore safe; kWall already marks the circular exterior.
-      if (cells_[p.cell + neighbor.offset] != kEmpty) continue;
-      const float tieBreak = (random() & 255) * (0.04f / 255.0f) * parameters.magnitude;
-      if (neighbor.alignment + tieBreak > best) {
-        best = neighbor.alignment + tieBreak;
-        bestX = neighbor.dx;
-        bestY = neighbor.dy;
-      }
-    }
-    if (best >= 0.0f) {
-      moveTo(id, currentCol + bestX + 0.5f, currentRow + bestY + 0.5f);
-      p.vx *= config::kRollingRetention;
-      p.vy *= config::kRollingRetention;
-      p.slide = 0.0f;
+    // A loose central patch produces a visible first splash instead of waiting
+    // for isolated dots to trickle in from every corner of the display. The
+    // inverse-area count limit keeps this patch compact even at 5x dot size.
+    const int columns = static_cast<int>(ceilf(sqrtf(static_cast<float>(activeCount_))));
+    const int rows = (activeCount_ + columns - 1) / columns;
+    const float spacing = 8.2f * scale_;
+    for (int i = 0; i < activeCount_; ++i) {
+      Particle &p = particles_[i];
+      p.x = kCenter + ((i % columns) - (columns - 1) * 0.5f) * spacing + jitter() * scale_;
+      p.y = kCenter - 14 + ((i / columns) - (rows - 1) * 0.5f) * spacing + jitter() * scale_;
+      p.vx = p.vy = 0;
+      p.color = static_cast<uint8_t>(random() & 7);
+      projectWall(p);
     }
   }
 
-  void moveX(uint16_t id, float nx) {
-    Particle &p = particles_[id];
-    if (!moveTo(id, nx, p.y)) {
-      p.x = (p.cell % kGridSize) + ((p.vx > 0.0f) ? 0.999f : 0.001f);
-      p.vx = 0.0f;
+  // One instantaneous impulse. Balanced agitation adds no net momentum until
+  // speed limiting/contact. Finite extremes are scaled before squaring.
+  void kick(float dx, float dy, float agitation) {
+    if (!isfinite(dx) || !isfinite(dy) || !isfinite(agitation)) return;
+    if (agitation < 0) agitation = 0;
+    if (agitation > config::kMaxKick) agitation = config::kMaxKick;
+    if (dx == 0 && dy == 0 && agitation == 0) return;
+    clampVector(dx, dy, config::kMaxKick);
+    static const float nx[8] = {1.41421356f,1,0,-1,-1.41421356f,-1,0,1};
+    static const float ny[8] = {0,1,1.41421356f,1,0,-1,-1.41421356f,-1};
+    for (int i = 0; i < activeCount_; i += 2) {
+      float jx = 0, jy = 0;
+      if (agitation > 0 && i + 1 < activeCount_) {
+        const int direction = random() & 7;
+        jx = nx[direction] * agitation;
+        jy = ny[direction] * agitation;
+      }
+      addVelocity(particles_[i], dx + jx, dy + jy);
+      if (i + 1 < activeCount_) addVelocity(particles_[i + 1], dx - jx, dy - jy);
     }
   }
 
-  void moveY(uint16_t id, float ny) {
-    Particle &p = particles_[id];
-    if (!moveTo(id, p.x, ny)) {
-      p.y = (p.cell / kGridSize) + ((p.vy > 0.0f) ? 0.999f : 0.001f);
-      p.vy = 0.0f;
+  // A point blast changes velocity once; it never teleports or resets dots.
+  // Inputs are screen coordinates and a peak impulse in pixels/second.
+  void explode(float originX, float originY, float strength) {
+    if (!isfinite(originX) || !isfinite(originY) || !isfinite(strength) ||
+        originX < 0 || originY < 0 || originX >= kDisplaySize || originY >= kDisplaySize ||
+        strength <= 0) return;
+    if (strength > config::kExplosionMaxImpulse) strength = config::kExplosionMaxImpulse;
+    static const float nx[8] = {1,0.70710678f,0,-0.70710678f,-1,-0.70710678f,0,0.70710678f};
+    static const float ny[8] = {0,0.70710678f,1,0.70710678f,0,-0.70710678f,-1,-0.70710678f};
+    for (int i = 0; i < activeCount_; ++i) {
+      Particle &p = particles_[i];
+      float x = p.x - originX, y = p.y - originY;
+      const float distance = sqrtf(x * x + y * y);
+      if (distance > 0.0001f) {
+        const float inverseDistance = 1.0f / distance;
+        x *= inverseDistance; y *= inverseDistance;
+      } else {
+        const int direction = random() & 7;
+        x = nx[direction]; y = ny[direction];
+      }
+      const float fraction = distance < 2 * kCircleRadius ? distance / (2 * kCircleRadius) : 1.0f;
+      const float impulse = strength * (config::kExplosionEdgeFraction +
+        (1.0f - config::kExplosionEdgeFraction) * (1.0f - fraction));
+      addVelocity(p, x * impulse, y * impulse);
     }
+  }
+
+  // Fixed 240Hz in firmware; other callers are safely split into <=1/240s.
+  // Only fast bursts in the smallest particles need two half-steps. Larger
+  // spacing and ordinary motion keep exactly the original integration path.
+  // Zero in-plane tilt has no artificial downward force. A long stall cannot
+  // trigger an unbounded catch-up or a single unstable integration step.
+  void step(float gx, float gy, float seconds) {
+    if (!isfinite(gx) || !isfinite(gy) || !isfinite(seconds) || seconds < 0.000001f) return;
+    if (seconds > config::kMaxFrameSeconds) seconds = config::kMaxFrameSeconds;
+    clampVector(gx, gy, config::kMaxGravity);
+    if (gx * gx + gy * gy < config::kGravityDeadzone * config::kGravityDeadzone) gx = gy = 0;
+    int count = static_cast<int>(ceilf(seconds / config::kMaxSubstepSeconds - 0.00001f));
+    if (count < 1) count = 1;
+    const float dt = seconds / count;
+    for (int i = 0; i < count; ++i) {
+      if (needsFastSubsteps(gx, gy, dt)) {
+        advance(gx, gy, dt * 0.5f);
+        advance(gx, gy, dt * 0.5f);
+      } else advance(gx, gy, dt);
+    }
+  }
+
+  const Particle &particle(size_t index) const { return particles_[index]; }
+  const impact::Pulse &impact(size_t index) const { return impacts_[index]; }
+  int pixelX(size_t index) const { return static_cast<int>(particles_[index].x + 0.5f); }
+  int pixelY(size_t index) const { return static_cast<int>(particles_[index].y + 0.5f); }
+
+ private:
+  struct Vector { float x, y; };
+  struct Pair { uint8_t a, b; };
+  static constexpr int kMaxBins = static_cast<int>(kDisplaySize / config::kInteractionRadius) + 1;
+  static constexpr int kMaxPairs = kMaxParticleCount * (kMaxParticleCount - 1) / 2;
+  Particle particles_[kMaxParticleCount];
+  impact::Pulse impacts_[kMaxParticleCount]; // Render-only; never feeds forces or positions.
+  Vector predicted_[kMaxParticleCount], delta_[kMaxParticleCount];
+  float density_[kMaxParticleCount], nearDensity_[kMaxParticleCount];
+  int16_t heads_[kMaxBins * kMaxBins], next_[kMaxParticleCount];
+  Pair pairs_[kMaxPairs]; // Every possible pair fits; no neighbor truncation.
+  int pairCount_;
+  uint32_t rng_;
+  int activeCount_ = kParticleCount, bins_ = kMaxBins;
+  bool packed_ = false;
+  float scale_ = 1.0f, radius_ = config::kDotRadius;
+  float support_ = config::kInteractionRadius, inverseSupport_ = 1.0f / config::kInteractionRadius;
+  float minSeparation_ = config::kMinSeparation, maxRelaxation_ = config::kMaxRelaxation;
+  float pressure_ = config::kPressure, nearPressure_ = config::kNearPressure;
+  float maxAttraction_ = config::kMaxAttraction, boundaryRadius_ = kBoundaryRadius;
+  // Positions do not change between density measurement and pair correction.
+  // Reuse those exact distances instead of taking each square root twice.
+  float pairDistances_[kMaxPairs];
+
+  void configureState(float scale, int count) {
+    activeCount_ = count;
+    scale_ = scale;
+    radius_ = config::kDotRadius * scale;
+    support_ = config::kInteractionRadius * scale;
+    inverseSupport_ = 1.0f / support_;
+    minSeparation_ = config::kMinSeparation * scale;
+    maxRelaxation_ = config::kMaxRelaxation * scale;
+    pressure_ = config::kPressure * scale;
+    nearPressure_ = config::kNearPressure * scale;
+    maxAttraction_ = config::kMaxAttraction * scale;
+    boundaryRadius_ = kCircleRadius - radius_;
+    bins_ = static_cast<int>(kDisplaySize / support_) + 1;
+  }
+
+  uint32_t random() {
+    rng_ ^= rng_ << 13; rng_ ^= rng_ >> 17; rng_ ^= rng_ << 5;
+    return rng_;
+  }
+  float jitter() { return (static_cast<int>(random() & 1023) - 511.5f) / 1024.0f; }
+  static void clampVector(float &x, float &y, float maximum) {
+    const float largest = fmaxf(fabsf(x), fabsf(y));
+    if (largest > maximum) { x = x / largest * maximum; y = y / largest * maximum; }
+    const float squared = x * x + y * y;
+    if (squared > maximum * maximum) {
+      const float scale = maximum / sqrtf(squared); x *= scale; y *= scale;
+    }
+  }
+  static void addVelocity(Particle &p, float dx, float dy) {
+    p.vx += dx; p.vy += dy;
+    limitSpeed(p);
+  }
+  // Internal velocities are already bounded by input and solver corrections.
+  // Keep overflow-safe scaling at the public input boundary, not every dot.
+  static void limitSpeed(Particle &p) {
+    const float squared = p.vx * p.vx + p.vy * p.vy;
+    if (squared > config::kMaxSpeed * config::kMaxSpeed) {
+      const float scale = config::kMaxSpeed / sqrtf(squared);
+      p.vx *= scale; p.vy *= scale;
+    }
+  }
+
+  bool needsFastSubsteps(float gx, float gy, float dt) const {
+    const float travelLimit = minSeparation_ * config::kMaxSubstepTravelFraction;
+    // Most size selections fit even the maximum speed at the normal cadence.
+    // Avoid scanning particles at all when their scaled spacing permits it.
+    if (config::kMaxSpeed * dt <= travelLimit) return false;
+    float speed2 = 0;
+    for (int i = 0; i < activeCount_; ++i) {
+      const Particle &p = particles_[i];
+      const float candidate = p.vx * p.vx + p.vy * p.vy;
+      if (candidate > speed2) speed2 = candidate;
+    }
+    // Acceleration can increase speed before integration; damping only reduces
+    // it, and advance() enforces the speed ceiling before changing positions.
+    float predictedSpeed = sqrtf(speed2) +
+        sqrtf(gx * gx + gy * gy) * config::kAcceleration * dt;
+    if (predictedSpeed > config::kMaxSpeed) predictedSpeed = config::kMaxSpeed;
+    return predictedSpeed * dt > travelLimit;
+  }
+  void projectWall(Particle &p) {
+    const float x = p.x - kCenter, y = p.y - kCenter;
+    const float r2 = x * x + y * y;
+    if (r2 > boundaryRadius_ * boundaryRadius_) {
+      const float scale = boundaryRadius_ / sqrtf(r2);
+      p.x = kCenter + x * scale; p.y = kCenter + y * scale;
+    }
+  }
+
+  void findNeighbors() {
+    for (int i = 0; i < bins_ * bins_; ++i) heads_[i] = -1;
+    const float inverseSupport = inverseSupport_;
+    const float support2 = support_ * support_;
+    for (int i = 0; i < activeCount_; ++i) {
+      const int x = static_cast<int>(particles_[i].x * inverseSupport);
+      const int y = static_cast<int>(particles_[i].y * inverseSupport);
+      const int bin = y * bins_ + x;
+      next_[i] = heads_[bin];
+      heads_[bin] = static_cast<int16_t>(i);
+    }
+    pairCount_ = 0;
+    for (int i = 0; i < activeCount_; ++i) {
+      const int x = static_cast<int>(particles_[i].x * inverseSupport);
+      const int y = static_cast<int>(particles_[i].y * inverseSupport);
+      const int left = x > 0 ? x - 1 : 0, right = x + 1 < bins_ ? x + 1 : bins_ - 1;
+      const int top = y > 0 ? y - 1 : 0, bottom = y + 1 < bins_ ? y + 1 : bins_ - 1;
+      for (int row = top; row <= bottom; ++row) {
+        for (int col = left; col <= right; ++col) {
+          for (int j = heads_[row * bins_ + col]; j >= 0; j = next_[j]) {
+            if (j <= i) continue;
+            const float dx = particles_[j].x - particles_[i].x;
+            const float dy = particles_[j].y - particles_[i].y;
+            if (dx * dx + dy * dy < support2)
+              pairs_[pairCount_++] = {static_cast<uint8_t>(i), static_cast<uint8_t>(j)};
+          }
+        }
+      }
+    }
+  }
+
+  void relax(float dt) {
+    for (int i = 0; i < activeCount_; ++i) {
+      density_[i] = nearDensity_[i] = 0;
+      delta_[i] = {0, 0};
+    }
+    const float inverseSupport = inverseSupport_;
+    findNeighbors();
+    for (int pair = 0; pair < pairCount_; ++pair) {
+        const int i = pairs_[pair].a, j = pairs_[pair].b;
+        const float x = particles_[j].x - particles_[i].x;
+        const float y = particles_[j].y - particles_[i].y;
+        const float r2 = x * x + y * y;
+        const float distance = sqrtf(r2);
+        pairDistances_[pair] = distance;
+        const float q = 1.0f - distance * inverseSupport;
+        const float q2 = q * q, q3 = q2 * q;
+        density_[i] += q2; density_[j] += q2;
+        nearDensity_[i] += q3; nearDensity_[j] += q3;
+    }
+    for (int i = 0; i < activeCount_; ++i) {
+      const float pressure = pressure_ * (density_[i] - config::kRestDensity);
+      density_[i] = pressure < -maxAttraction_ ? -maxAttraction_ : pressure;
+      nearDensity_[i] *= nearPressure_;
+    }
+    const float scale = 0.5f * dt * dt / config::kRelaxationIterations;
+    for (int pair = 0; pair < pairCount_; ++pair) {
+        const int i = pairs_[pair].a, j = pairs_[pair].b;
+        float x = particles_[j].x - particles_[i].x;
+        float y = particles_[j].y - particles_[i].y;
+        const float r = pairDistances_[pair];
+        const float q = 1.0f - r * inverseSupport;
+        if (r > 0.0001f) { const float inverseR = 1.0f / r; x *= inverseR; y *= inverseR; }
+        else { // Deterministic symmetric escape from exact coincidence.
+          x = ((i + j) & 1) ? 1.0f : 0.0f;
+          y = ((i + j) & 1) ? 0.0f : 1.0f;
+        }
+        float displacement = scale * ((density_[i] + density_[j]) * q +
+                              (nearDensity_[i] + nearDensity_[j]) * q * q);
+        if (r < minSeparation_) {
+          const float separation = (minSeparation_ - r) * 0.5f;
+          if (displacement < separation) displacement = separation;
+        }
+        delta_[i].x -= x * displacement; delta_[i].y -= y * displacement;
+        delta_[j].x += x * displacement; delta_[j].y += y * displacement;
+    }
+    // A shared scale (rather than per-particle clipping) retains equal/opposite
+    // internal corrections even during a very crowded impact.
+    float largest2 = maxRelaxation_ * maxRelaxation_;
+    for (int i = 0; i < activeCount_; ++i) {
+      const float d2 = delta_[i].x * delta_[i].x + delta_[i].y * delta_[i].y;
+      if (d2 > largest2) largest2 = d2;
+    }
+    const float correctionScale = maxRelaxation_ / sqrtf(largest2);
+    for (int i = 0; i < activeCount_; ++i) {
+      particles_[i].x += delta_[i].x * correctionScale;
+      particles_[i].y += delta_[i].y * correctionScale;
+      projectWall(particles_[i]);
+    }
+  }
+
+  void advance(float gx, float gy, float dt) {
+    const float damping = 1.0f / (1.0f + config::kAirDamping * dt);
+    for (int i = 0; i < activeCount_; ++i) {
+      impacts_[i].advance(dt);
+      Particle &p = particles_[i];
+      p.vx = (p.vx + gx * config::kAcceleration * dt) * damping;
+      p.vy = (p.vy + gy * config::kAcceleration * dt) * damping;
+      limitSpeed(p);
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      predicted_[i] = {p.x, p.y};
+      projectWall(p);
+    }
+    for (int pass = 0; pass < config::kRelaxationIterations; ++pass) relax(dt);
+    const float inverseDt = 1.0f / dt;
+    for (int i = 0; i < activeCount_; ++i) {
+      Particle &p = particles_[i];
+      // Keep the integrated velocity, then add only constraint corrections.
+      // Reconstructing the entire velocity from two ~120px float positions
+      // quantizes away small drag changes at 240Hz, causing perpetual drift.
+      float vx = p.vx + (p.x - predicted_[i].x) * inverseDt;
+      float vy = p.vy + (p.y - predicted_[i].y) * inverseDt;
+      const float x = p.x - kCenter, y = p.y - kCenter;
+      const float r2 = x * x + y * y;
+      if (r2 >= (boundaryRadius_ - 0.01f) * (boundaryRadius_ - 0.01f)) {
+        const float inverseRadius = 1.0f / sqrtf(r2);
+        const float nx = x * inverseRadius, ny = y * inverseRadius;
+        const float incoming = p.vx * nx + p.vy * ny;
+        impacts_[i].contact(incoming, nx, ny);
+        const float normal = vx * nx + vy * ny;
+        const float bounce = incoming > config::kWallBounceMinSpeed ?
+                             -config::kWallRestitution * incoming : 0.0f;
+        // Preserve tangential speed so a sideways crash runs up the round rim.
+        if (normal > bounce) { vx += (bounce - normal) * nx; vy += (bounce - normal) * ny; }
+        const float radial = vx * nx + vy * ny;
+        vx -= (vx - radial * nx) * config::kWallFriction;
+        vy -= (vy - radial * ny) * config::kWallFriction;
+      } else {
+        impacts_[i].leaveWall();
+      }
+      p.vx = vx; p.vy = vy;
+      delta_[i] = {0, 0};
+    }
+    // Mild, pairwise momentum exchange; no global velocity averaging.
+    findNeighbors();
+    for (int pair = 0; pair < pairCount_; ++pair) {
+        const int i = pairs_[pair].a, j = pairs_[pair].b;
+        const float x = particles_[j].x - particles_[i].x;
+        const float y = particles_[j].y - particles_[i].y;
+        const float r2 = x * x + y * y;
+        const float q = 1.0f - sqrtf(r2) * inverseSupport_;
+        const float viscosity = config::kViscosity * dt * q * 0.5f;
+        const float amount = viscosity < 0.025f ? viscosity : 0.025f;
+        const float dx = (particles_[j].vx - particles_[i].vx) * amount;
+        const float dy = (particles_[j].vy - particles_[i].vy) * amount;
+        delta_[i].x += dx; delta_[i].y += dy;
+        delta_[j].x -= dx; delta_[j].y -= dy;
+    }
+    for (int i = 0; i < activeCount_; ++i)
+      addVelocity(particles_[i], delta_[i].x, delta_[i].y);
   }
 };
+} // namespace sand
 
-}  // namespace sand
-
+#if defined(ARDUINO_ARCH_ESP32) && defined(__GNUC__) && !defined(__clang__)
+#pragma GCC pop_options
+#endif
 #endif

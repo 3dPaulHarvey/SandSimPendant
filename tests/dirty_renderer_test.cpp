@@ -1,5 +1,4 @@
 #include "../Gravity_Sand/DirtyRenderer.h"
-#include "../Gravity_Sand/SandSimulation.h"
 
 #include <assert.h>
 #include <math.h>
@@ -47,62 +46,6 @@ static uint32_t randomValue() {
   rng ^= rng >> 17;
   rng ^= rng << 5;
   return rng;
-}
-
-static void capture(const sand::Simulation &sim) {
-  for (int y = 0; y < kSize; ++y)
-    for (int x = 0; x < kSize; ++x) {
-      const uint16_t id = sim.particleAt(x, y);
-      current[y * kSize + x] = id < sand::Simulation::kParticleCount ?
-                              sim.particle(id).color + 1 : 0;
-    }
-}
-
-static void benchmarkSimulationFrames() {
-  static sand::Simulation sim;
-  const Options configurations[5] = {
-    Options(2, 1, 0), Options(2, 4, 8), Options(4, 4, 8),
-    Options(4, 4, 16), Options(4, 4, 24)
-  };
-  const char *phases[] = {"settling", "quarter-turns", "sustained agitation"};
-  sim.reset(42);
-  memset(previous, 0, sizeof(previous));
-  for (int phase = 0; phase < 3; ++phase) {
-    long windows[5] = {}, cells[5] = {};
-    const int frames = 300;
-    for (int frame = 0; frame < frames; ++frame) {
-      float gx = 0, gy = 1;
-      if (phase == 1) {
-        const int direction = (frame / 75 + 1) & 3;
-        gx = direction == 1 ? -1.0f : (direction == 3 ? 1.0f : 0.0f);
-        gy = direction == 0 ? 1.0f : (direction == 2 ? -1.0f : 0.0f);
-      } else if (phase == 2) {
-        const float angle = frame * 0.025f;
-        gx = cosf(angle);
-        gy = sinf(angle);
-        if (frame % 3 == 0) sim.kick(gx * 12, gy * 12, 15);
-      }
-      sim.step(gx, gy, 1.0f / 60.0f);
-      capture(sim);
-      for (int choice = 0; choice < 5; ++choice) {
-        const Result r = repaint(configurations[choice]);
-        windows[choice] += r.windows;
-        cells[choice] += r.cells;
-      }
-      memcpy(previous, current, sizeof(previous));
-    }
-    for (int choice = 0; choice < 5; ++choice) {
-      // One cell is nine RGB565 pixels: 18 bytes / 5 MB/s at 40 MHz.
-      // This is wire time only, excluding display commands and CPU work.
-      printf("%s gap%d/band%d/extra%d: %.1f windows, %.1f pixels/frame; "
-             "%.2fms pixel wire time at40MHz.\n", phases[phase],
-             configurations[choice].mergeGapCells,
-             configurations[choice].maxBandRows,
-             configurations[choice].mergeOverdrawCells,
-             windows[choice] / static_cast<double>(frames),
-             cells[choice] * 9.0 / frames, cells[choice] * 0.0036 / frames);
-    }
-  }
 }
 
 int main() {
@@ -175,7 +118,6 @@ int main() {
   assert(!sand::render::plan(current, previous, 80, 0, defaults, ignored));
   assert(!sand::render::plan(nullptr, previous, 80, 80, defaults, ignored));
   assert(callbacks == 0);
-  benchmarkSimulationFrames();
   puts("Dirty rectangles repaint complete frames with bounded bands and fewer windows.");
   return 0;
 }
