@@ -1,11 +1,11 @@
 # Hardware catalog
 
-Current selected hardware, updated 2026-11-26. Quantities below are per pendant;
+Current selected hardware, updated 2026-11-27. Quantities below are per pendant;
 the controller and screen product listings are each four-packs.
 
 | Qty | Part | Selected hardware |
 | --- | --- | --- |
-| 1 | Controller | Aideepen ESP32-S3 Mini / Super Mini development board, USB-C, supplied without soldered headers; latest verified port **COM35** |
+| 1 | Controller | Aideepen ESP32-S3 Mini / Super Mini development board, USB-C, supplied without soldered headers; latest verified port **COM32** |
 | 1 | Display | Standalone **1.28-inch GC9A01 round IPS TFT**, 240 x 240, seven-pin SPI module; **no touchscreen** |
 | 1 | Motion sensor | **GY-521 development/breakout board sold as MPU6050**; replacement module reports nonstandard chip ID 0x75 and uses scoped compatibility mode |
 | 2 | Buttons | Standard breadboard tactile pushbuttons, normally open and momentary; fluid explosion and new size/population controls |
@@ -27,7 +27,7 @@ Development Board, ESP32-S3 Dual-Core WiFi + Bluetooth 5.0 IoT Dev Kit, USB-C,
 | Flash | 4 MB embedded XMC flash, identified on this board by esptool |
 | PSRAM | 2 MB embedded PSRAM, identified by esptool; runtime memory operation not yet tested |
 | Chip revision | ESP32-S3 revision 0.2, observed during diagnostics |
-| USB | USB-C; native USB Serial/JTAG, VID 303A / PID 1001; last verified on COM35 |
+| USB | USB-C; native USB Serial/JTAG, VID 303A / PID 1001; last verified on COM32 |
 | Onboard controls | BOOT and RESET buttons |
 | Onboard RGB LED | Addressable RGB LED on GPIO48; red/green/blue operation verified |
 | Arduino board setting | ESP32S3 Dev Module; see the diagnostic README for tested settings |
@@ -304,3 +304,18 @@ showed 183.0-187.4Hz IMU samples, zero driver errors and rejected samples,
 software rendering at 59.5-60.5 FPS, and no observed reboot. Both application
 sketches build; the five focused mapping, driver, and shake tests pass.
 Evidence is saved in `build/mount-flipped-COM35` (ignored by Git).
+
+## Tilt color-wheel LED, COM32, 2026-11-27
+
+Gravity_Sand now drives the onboard GPIO48 RGB LED from filtered, screen-mapped
+tilt. The IMU visualizer shares the same LED behavior. No additional wiring or
+libraries are required; the standalone diagnostic retains its RGB test cycle.
+See the [LED mapping and tuning](Gravity_Sand/README.md#tilt-color-wheel-led).
+
+The connected COM32 board (MAC `98:c3:77:63:d3:18`) received the new firmware;
+all four flash segments verified. Active mount defaults were
+`swap=1 flipX=1 flipY=1`, with no saved mapping reported. A near-level capture
+confirmed RGB output off, no repeated LED writes, roughly 60 software FPS, and
+zero observed IMU errors. Physical wheel direction and color appearance await a
+tilt check; no calibration or mount preferences were written by this change.
+Logs are in `build/tilt-rgb/` (ignored by Git).

@@ -15,6 +15,40 @@ use the narrowly scoped compatibility setting in `shared/BoardConfig.h` while
 retaining configuration-readback and fresh-data checks. Its exact chip model is
 unconfirmed; see the [hardware observations](../HARDWARE.md#hardware-verification-status).
 
+## Tilt color-wheel LED
+
+The onboard addressable RGB LED on GPIO48 follows **physical tilt direction**,
+independently of the fluid palette, manual gravity modes, and explosions.
+It uses the same saved screen-axis mapping as the fluid:
+
+| Tilt direction | Approximate LED color |
+| --- | --- |
+| Up | Blue |
+| Up-right | Cyan |
+| Right | Green |
+| Down-right | Yellow-green |
+| Down | Yellow |
+| Down-left | Orange |
+| Left | Red |
+| Up-left | Magenta |
+
+Colors blend between these eight anchors. Brightness ramps from off around
+0.04g of in-plane tilt to a modest per-channel ceiling of 32/255 near 0.65g.
+Level means the filtered X/Y gravity components are near zero, with either
+face pointing up; it does not automatically redefine level at startup.
+Existing sensor bias calibration still applies. Invalid, unready, disconnected,
+or more than 150ms-old readings turn the LED off.
+
+The shared `TiltColorWheel.h` uses fixed-point arithmetic, one variable integer
+division for direction, and `max + 3/8 * min` for approximate tilt magnitude.
+It needs no `atan2`, sine/cosine, square root, HSV conversion, new sensor reads,
+or dynamic allocation. `TiltRgbLed.h` initializes Arduino's hardware RMT driver
+once at startup, checks color at most 25 times per second, and writes only
+changed RGB values. An invalid input can turn it off immediately between checks.
+LED writes run on the input core after publishing the due LCD frame, outside
+physics catch-up. Tune the rate, deadzone, full-tilt threshold, and brightness
+cap in `shared/TiltColorWheel.h`.
+
 ## Wiring
 
 Pin numbers are raw GPIO numbers printed on the Super Mini. The canonical
@@ -62,7 +96,7 @@ From the repository root in PowerShell:
 The wrapper uses `upload-firmware.ps1`, compiles before uploading, and stores
 build intermediates outside Dropbox. Close Serial Monitor before uploading.
 The sole connected Espressif serial port is selected automatically. With multiple
-boards, specify the intended port, for example `-Port COM35` for the latest
+boards, specify the intended port, for example `-Port COM32` for the latest
 verified board.
 
 Arduino settings: **ESP32S3 Dev Module**, 240 MHz CPU, 4 MB flash, DIO flash
@@ -509,6 +543,9 @@ costs much less to draw.
 `BACKGROUND` reports gradient-field update Hz, visible background tiles
 committed per frame, and the current effect seed. These distinguish background
 animation work from the overall drawing and physics rates.
+`LED` reports the current RGB output, actual writes per second, and average/peak
+time inside the RGB driver call. These timings include driver/scheduling overhead;
+the 25Hz limit is not a guarantee about each write's duration.
 `FLUID` reports particle RMS speed, maximum speed, and centroid, so continued
 internal motion can be distinguished from a changing tilt signal. `SENSOR`
 reports qualified gyro readings, current I2C clock, rejected-packet count,
@@ -945,3 +982,22 @@ the smallest dense blasts dipped to roughly 37 FPS. A final 70-star scene
 recovered to 59.4 FPS after settling, with roughly 240Hz physics. Exactly one
 odd shape remained present throughout, and live tilt was restored.
 Log: `build/explosion-200/live-verification.log` (ignored).
+
+### Tilt RGB LED, 2026-11-27
+
+All **26 native suites pass**, including new color-wheel and hardware-adapter
+tests for angle continuity, brightness bounds, invalid inputs, update throttling,
+duplicate suppression, stale-data shutdown, and timer wrap. Both main sketches
+compile. Gravity_Sand uses 428,070 bytes of flash and 250,880 bytes of static RAM:
+1,028 additional flash bytes and 24 additional static RAM bytes versus the
+pre-effects checkpoint. The RGB driver's RMT initialization also allocates
+runtime resources; static RAM figures do not include those.
+
+Uploaded to COM32 with all four flash segments hash-verified. A 35-second
+near-level capture showed RGB `(0,0,0)` with no repeated LED writes, roughly
+59.5–60.5 completed software FPS, physics around 240Hz, and zero observed sensor
+errors/rejected packets. This resting check verifies the dark center and write
+suppression; it does not measure driver timing during changing colors or confirm
+the LED's physical appearance around the wheel. Those require tilting the board.
+The existing low-memory compiler warning remains. Evidence is in
+`build/tilt-rgb/` (ignored by Git).

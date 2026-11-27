@@ -2,10 +2,10 @@
 
 A tilt-responsive fluid pendant using an **Aideepen ESP32-S3 Super Mini**, a
 standalone **GC9A01 1.28-inch 240 x 240 round display**, a **GY-521 MPU6050**,
-and two optional tactile buttons. The latest verified board uses **COM35**; upload
+and two optional tactile buttons. The latest verified board uses **COM32**; upload
 scripts automatically select the connected Espressif serial port when it is unique.
 
-The current program is saved as **`pre-effects-2026-11-27`**. See the
+The pre-effects baseline is saved as **`pre-effects-2026-11-27`**. See the
 [checkpoint notes](CHECKPOINTS.md) for validation results and recovery steps.
 
 ## Start with the display and IMU test
@@ -55,6 +55,11 @@ the circular physics. On boot and every Randomize press, exactly one particle us
 different shape; all others share the chosen main shape. The main screen has
 no IMU indicators, error flashes, or connection text.
 Error counts and detailed diagnostics remain available over serial.
+The onboard RGB LED also follows tilt as a simple color wheel: up is blue,
+right green, down yellow, and left red, blending between directions. It fades
+off near level and brightens with tilt. Both main sketches reuse the existing
+filtered sensor readings, with at most 25 normal LED updates per second and
+no trigonometry, square roots, or extra sensor polling for the LED.
 Background redraws use an adaptive
 tile budget and skip areas hidden by opaque foreground shapes, keeping motion
 active under load while reserving drawing time for the particles.
@@ -81,7 +86,7 @@ enabled, and loop on core 1. It compiles before uploading and uses a watchdog
 reset to restart the board. Build intermediates live in
 `%LOCALAPPDATA%\SimCircle\build`; logs live in the ignored repository `build` folder.
 Close Serial Monitor before uploading. If multiple Espressif boards are connected,
-select one explicitly, for example `-Port COM35`. An explicit port is never
+select one explicitly, for example `-Port COM32`. An explicit port is never
 silently redirected to a different board. `-BuildOnly` needs no connected board.
 
 Installed dependencies: Arduino CLI, Espressif ESP32 core 3.3.12, Adafruit

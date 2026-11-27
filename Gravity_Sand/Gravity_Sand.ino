@@ -39,6 +39,7 @@
 #include "../shared/MPU6050Motion.h"
 #include "../shared/ShakeInput.h"
 #include "../shared/MotionHealth.h"
+#include "../shared/TiltRgbLed.h"
 
 constexpr int LCD_CS = hardware::kLcdCS, LCD_DC = hardware::kLcdDC;
 constexpr int LCD_RST = hardware::kLcdReset;
@@ -183,6 +184,7 @@ bool readRegisters(uint8_t address, uint8_t reg, uint8_t *out,
 motion::MPU6050Motion motionSensor(Wire, hardware::kImuCompatibilityId);
 motion::ShakeInput shakeInput;
 motion::MotionHealth motionHealth;
+motion::TiltRgbLed tiltRgbLed;
 bool shakeEnabled = true;
 float shakeGain = sand::config::kShakeGain, peakShakeImpulse = 0, peakShoveImpulse = 0;
 uint32_t lastShakeSampleUs = 0, shakePulses = 0;
@@ -754,6 +756,7 @@ void publishDueFrame(uint32_t nowUs) {
 void setup() {
   Serial.begin(115200);
   Serial.setTxTimeoutMs(1);
+  tiltRgbLed.begin();
   preferencesReady = preferences.begin("gravity-sand", false);
   if (preferencesReady) {
     swapAxes = preferences.getBool("swap", hardware::kImuSwapAxes);
@@ -838,6 +841,10 @@ void loop() {
   }
   nowUs = micros();
   publishDueFrame(nowUs);
+  // Physical tilt only: manual/demo gravity and explosions do not drive the LED.
+  // Service after frame publication, outside the physics catch-up steps.
+  tiltRgbLed.update(micros(), filteredX, filteredY,
+                    imuOnline && motionSensor.motionReady, motionSensor.lastSampleUs);
   uint32_t now = millis(), elapsed = now - lastStatsMs;
   if (elapsed >= sand::config::kStatsIntervalMs) {
     RenderStats drawing;
@@ -870,6 +877,12 @@ void loop() {
       drawing.backgroundFields * 1000.0f / elapsed,
       (unsigned long)(drawing.frames ? drawing.backgroundTiles / drawing.frames : 0),
       (unsigned long)backgroundSeed);
+    const motion::TiltRgb &led = tiltRgbLed.color();
+    logMessage("LED rgb=(%u,%u,%u) writes=%.1fHz writeAvg=%luus writeMax=%luus\n",
+      led.r, led.g, led.b, tiltRgbLed.writes * 1000.0f / elapsed,
+      (unsigned long)(tiltRgbLed.writes ? tiltRgbLed.totalWriteUs / tiltRgbLed.writes : 0),
+      (unsigned long)tiltRgbLed.maxWriteUs);
+    tiltRgbLed.resetStats();
     logMessage("RATES physics=%.1fHz target=%luHz IMU=%.1fHz snapshotTarget=%luHz skipped=%lu\n",
       physicsSteps * 1000.0f / elapsed, (unsigned long)sand::config::kPhysicsHz,
       (uint32_t)(motionSensor.samples - lastImuSamples) * 1000.0f / elapsed,

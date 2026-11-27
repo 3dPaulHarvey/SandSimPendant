@@ -4,6 +4,13 @@ A standalone screen and motion test for the Aideepen ESP32-S3 Super Mini,
 GC9A01 240 x 240 round display, and GY-521 MPU6050 module. It runs immediately
 without a Serial Monitor, physical buttons, or saved calibration.
 
+The onboard RGB LED on GPIO48 also shows the shared tilt color wheel: up blue,
+right green, down yellow, left red, with blends between directions. It fades
+off near level, is capped at 32/255 per channel, and updates at most 25 times
+per second when the output changes. It follows the same mapping and calibration
+as the tilt indicator and goes dark when sensor readings are unavailable or
+stale. See the [color-wheel details](../Gravity_Sand/README.md#tilt-color-wheel-led).
+
 ## Wiring
 
 All pin numbers are raw GPIO numbers printed on the Super Mini. The shared

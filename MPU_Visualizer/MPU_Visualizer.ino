@@ -13,6 +13,7 @@
 #include "../shared/BoardConfig.h"
 #include "../shared/ButtonInput.h"
 #include "../shared/MPU6050Motion.h"
+#include "../shared/TiltRgbLed.h"
 
 constexpr uint16_t BLACK = 0, WHITE = 0xFFFF, DIM = 0x2945;
 constexpr uint16_t CYAN = 0x07FF, GOLD = 0xFEA0, GREEN = 0x07E0, RED = 0xF800;
@@ -24,6 +25,7 @@ GFXcanvas16 scope(SCOPE_W, SCOPE_H);
 GFXcanvas16 numbers(184, 42);
 input::ButtonInput calibrateButton, modeButton;
 motion::MPU6050Motion imu(Wire, hardware::kImuCompatibilityId);
+motion::TiltRgbLed tiltRgbLed;
 motion::StationaryCalibrator calibrator(400);
 Preferences mountSettings;
 bool mountReady = false;
@@ -427,6 +429,7 @@ void handleControls() {
 void setup() {
   Serial.begin(115200);
   Serial.setTxTimeoutMs(1);
+  tiltRgbLed.begin();
   pinMode(hardware::kButtonPrimary, INPUT_PULLUP);
   pinMode(hardware::kButtonSecondary, INPUT_PULLUP);
   // Capture boot-held switches before the color test; require release first.
@@ -474,6 +477,8 @@ void loop() {
     if ((uint32_t)(nowUs - lastFrameUs) >= FRAME_US) lastFrameUs = nowUs;
     drawFrame();
   }
+  tiltRgbLed.update(micros(), imu.gravity.x, imu.gravity.y,
+                    imu.online && imu.motionReady, imu.lastSampleUs);
   const uint32_t now = millis(), elapsed = now - lastStatsMs;
   if (elapsed >= 1000) {
     actualHz = (imu.samples - lastSampleCount) * 1000.0f / elapsed;
